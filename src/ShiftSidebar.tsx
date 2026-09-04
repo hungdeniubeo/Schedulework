@@ -1,0 +1,176 @@
+import { useState } from "react";
+import { SHIFT_COLORS } from "./defaultData";
+import { PaletteShift } from "./ScheduleTable";
+import type { ShiftType } from "./types";
+
+type Form = {
+  id?: string;
+  start: string;
+  end: string;
+  start2: string;
+  end2: string;
+  color: string;
+};
+
+const emptyForm = (): Form => ({
+  start: "10:00",
+  end: "14:00",
+  start2: "",
+  end2: "",
+  color: SHIFT_COLORS[0],
+});
+
+function labelFrom(form: Form): string {
+  const a = `${form.start}-${form.end}`;
+  if (form.start2 && form.end2) return `${a}/${form.start2}-${form.end2}`;
+  return a;
+}
+
+function formFromShift(s: ShiftType): Form {
+  const parts = s.label.split("/");
+  const [start, end] = (parts[0] ?? "10:00-14:00").split("-");
+  const [start2, end2] = (parts[1] ?? "-").split("-");
+  return {
+    id: s.id,
+    start: start?.trim() || "10:00",
+    end: end?.trim() || "14:00",
+    start2: start2?.trim() || "",
+    end2: end2?.trim() || "",
+    color: s.color,
+  };
+}
+
+type Props = {
+  open: boolean;
+  onToggle: () => void;
+  shifts: ShiftType[];
+  onSave: (shift: Omit<ShiftType, "id"> & { id?: string }) => void;
+  onDelete: (id: string) => void;
+};
+
+export function ShiftSidebar({ open, onToggle, shifts, onSave, onDelete }: Props) {
+  const [form, setForm] = useState<Form | null>(null);
+
+  return (
+    <div className="relative flex h-full shrink-0">
+      <button
+        type="button"
+        className="z-10 h-full w-4 border-l border-[#999] bg-[#f2f2f2] text-[11px] text-[#666] hover:bg-[#e6e6e6]"
+        onClick={onToggle}
+        title={open ? "Ẩn loại ca" : "Hiện loại ca"}
+      >
+        {open ? "›" : "‹"}
+      </button>
+      {open && (
+        <aside className="flex h-full w-56 flex-col border-l border-[#999] bg-white">
+          <div className="border-b border-[#999] bg-[#d9d9d9] px-2 py-1.5 text-center text-[13px] font-bold">
+            Loại ca
+          </div>
+          <div className="flex-1 overflow-auto py-1">
+            {shifts.map((shift) => (
+              <div key={shift.id} className="group relative">
+                <div
+                  onDoubleClick={() => setForm(formFromShift(shift))}
+                  onClick={() => setForm(formFromShift(shift))}
+                >
+                  <PaletteShift shift={shift} />
+                </div>
+                <button
+                  type="button"
+                  className="absolute right-1 top-1 hidden h-4 w-4 text-[11px] text-black/40 hover:text-black group-hover:block"
+                  onClick={() => onDelete(shift.id)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          {form ? (
+            <form
+              className="border-t border-[#999] p-2 text-[12px]"
+              onSubmit={(e) => {
+                e.preventDefault();
+                onSave({
+                  id: form.id,
+                  label: labelFrom(form),
+                  color: form.color,
+                  isPreset: false,
+                });
+                setForm(null);
+              }}
+            >
+              <div className="mb-1 font-bold">{form.id ? "Sửa ca" : "Ca mới"}</div>
+              <label className="mb-1 flex items-center gap-1">
+                Từ
+                <input
+                  className="flex-1 border border-[#999] px-1"
+                  value={form.start}
+                  onChange={(e) => setForm({ ...form, start: e.target.value })}
+                />
+              </label>
+              <label className="mb-1 flex items-center gap-1">
+                Đến
+                <input
+                  className="flex-1 border border-[#999] px-1"
+                  value={form.end}
+                  onChange={(e) => setForm({ ...form, end: e.target.value })}
+                />
+              </label>
+              <div className="mb-1 text-[#666]">Khoảng 2 (tuỳ chọn, nối /)</div>
+              <label className="mb-1 flex items-center gap-1">
+                Từ
+                <input
+                  className="flex-1 border border-[#999] px-1"
+                  value={form.start2}
+                  onChange={(e) => setForm({ ...form, start2: e.target.value })}
+                />
+              </label>
+              <label className="mb-1 flex items-center gap-1">
+                Đến
+                <input
+                  className="flex-1 border border-[#999] px-1"
+                  value={form.end2}
+                  onChange={(e) => setForm({ ...form, end2: e.target.value })}
+                />
+              </label>
+              <div className="mb-2 grid grid-cols-5 gap-1">
+                {SHIFT_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className="h-5 w-full border"
+                    style={{
+                      background: c,
+                      outline: form.color === c ? "2px solid #000" : "1px solid #666",
+                    }}
+                    onClick={() => setForm({ ...form, color: c })}
+                  />
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <button type="submit" className="flex-1 border border-[#999] bg-[#f3f3f3] py-0.5">
+                  Lưu
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 border border-[#999] py-0.5"
+                  onClick={() => setForm(null)}
+                >
+                  Huỷ
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="border-t border-[#999] px-2 py-1.5 text-left hover:bg-[#f3f3f3]"
+              onClick={() => setForm(emptyForm())}
+            >
+              + Ca mới
+            </button>
+          )}
+        </aside>
+      )}
+    </div>
+  );
+}

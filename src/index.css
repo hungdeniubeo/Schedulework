@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #fff;
+  color: #000;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-style: normal;
+}
+
+* {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.sheet {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  background: #fff;
+}
+
+.sheet th,
+.sheet td {
+  border: 1px solid #999;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  vertical-align: middle;
+}
+
+.sheet .corner,
+.sheet .day-head {
+  background: #d9d9d9;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 2px;
+}
+
+.sheet .group-row td {
+  background: #ffff00;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 6px;
+}
+
+.sheet .name-cell {
+  background: #fff;
+  font-weight: 700;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.sheet .shift-line {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 18px;
+  position: relative;
+}
+
+.sheet .shift-line span {
+  flex: 1;
+  text-align: center;
+  padding: 1px 4px;
+  font-weight: 600;
+}
+
+.sheet.exporting .no-export {
+  display: none !important;
+}
