@@ -1,16 +1,16 @@
 import type { AppData } from "./types";
 
 export const SHIFT_COLORS = [
-  "#70AD47",
-  "#C00000",
-  "#ED7D31",
-  "#A6A6A6",
-  "#5B9BD5",
-  "#FFC000",
-  "#7030A0",
-  "#00B0F0",
-  "#00B050",
-  "#F4B183",
+  "#C5D9C7",
+  "#E8C4C4",
+  "#EDD4B3",
+  "#D8D8D4",
+  "#C7D4EA",
+  "#EFE3B0",
+  "#D9C6E0",
+  "#BFDCD4",
+  "#E6CFC4",
+  "#C9DDE3",
 ];
 
 function id(prefix: string, n: number): string {
@@ -39,13 +39,13 @@ export function createDefaultData(): AppData {
       { id: id("e", 7), name: "Hoa", shortName: "Hoa", groupId: id("g", 3), sortOrder: 1 },
     ],
     shiftTypes: [
-      { id: id("s", 1), label: "10:00-14:00", color: "#70AD47", isPreset: true },
-      { id: id("s", 2), label: "14:00-23:00", color: "#C00000", isPreset: true },
-      { id: id("s", 3), label: "17:00-23:00", color: "#ED7D31", isPreset: true },
-      { id: id("s", 4), label: "18:00-23:00", color: "#A6A6A6", isPreset: true },
-      { id: id("s", 5), label: "10h-14h/18h-23h", color: "#5B9BD5", isPreset: true },
-      { id: id("s", 6), label: "11h-15h/18h-22h", color: "#FFC000", isPreset: true },
-      { id: id("s", 7), label: "10h-14h/17h-23h", color: "#7030A0", isPreset: true },
+      { id: id("s", 1), label: "10:00-14:00", color: "#C5D9C7", isPreset: true },
+      { id: id("s", 2), label: "14:00-23:00", color: "#E8C4C4", isPreset: true },
+      { id: id("s", 3), label: "17:00-23:00", color: "#EDD4B3", isPreset: true },
+      { id: id("s", 4), label: "18:00-23:00", color: "#D8D8D4", isPreset: true },
+      { id: id("s", 5), label: "10h-14h/18h-23h", color: "#C7D4EA", isPreset: true },
+      { id: id("s", 6), label: "11h-15h/18h-22h", color: "#EFE3B0", isPreset: true },
+      { id: id("s", 7), label: "10h-14h/17h-23h", color: "#D9C6E0", isPreset: true },
     ],
     schedules: {},
   };

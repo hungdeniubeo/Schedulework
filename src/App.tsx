@@ -99,7 +99,7 @@ export default function App() {
   const overlay = useMemo(() => {
     if (!dragLabel) return null;
     return (
-      <div className="border border-[#999] bg-white px-2 py-0.5 text-[13px] font-semibold">
+      <div className="rounded-md border border-line bg-white px-2.5 py-1.5 text-[12px] font-medium tabular-nums text-ink shadow-sm">
         {dragLabel}
       </div>
     );
@@ -175,27 +175,39 @@ export default function App() {
   }
 
   if (error) {
-    return <div className="p-6 text-[14px]">{error}</div>;
+    return (
+      <div className="flex h-full items-center justify-center bg-canvas p-8 text-[14px] text-ink-muted">
+        {error}
+      </div>
+    );
   }
 
   if (!data) {
-    return <div className="p-6 text-[14px]">Đang tải...</div>;
+    return (
+      <div className="flex h-full items-center justify-center bg-canvas p-8 text-[14px] text-ink-faint">
+        Đang tải...
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-full flex-col bg-white">
-      <header className="flex items-center gap-2 border-b border-[#999] bg-[#f2f2f2] px-2 py-1">
+    <div className="flex h-full flex-col bg-canvas">
+      <header className="flex items-center gap-3 border-b border-line bg-white px-4 py-2.5">
+        <div className="text-[14px] font-semibold tracking-tight text-ink">
+          Lịch ca
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-line bg-panel px-2 py-1">
         <button
           type="button"
-          className="border border-[#999] bg-white px-2 py-0.5"
+          className="ui-btn h-7 w-7 px-0"
           onClick={() => void changeWeek(shiftWeek(week, -1))}
         >
           ‹
         </button>
-        <label className="flex items-center gap-1">
+        <label className="ui-label">
           Tháng
           <select
-            className="border border-[#999] bg-white px-1 py-0.5"
+            className="ui-select h-7 w-14"
             value={week.month}
             onChange={(e) =>
               void changeWeek({ ...week, month: Number(e.target.value) })
@@ -208,10 +220,10 @@ export default function App() {
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-1">
+        <label className="ui-label">
           Năm
           <select
-            className="border border-[#999] bg-white px-1 py-0.5"
+            className="ui-select h-7 w-[4.5rem]"
             value={week.year}
             onChange={(e) =>
               void changeWeek({ ...week, year: Number(e.target.value) })
@@ -224,10 +236,10 @@ export default function App() {
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-1">
+        <label className="ui-label">
           Tuần
           <select
-            className="border border-[#999] bg-white px-1 py-0.5"
+            className="ui-select h-7 w-12"
             value={week.week}
             onChange={(e) =>
               void changeWeek({ ...week, week: Number(e.target.value) })
@@ -242,15 +254,16 @@ export default function App() {
         </label>
         <button
           type="button"
-          className="border border-[#999] bg-white px-2 py-0.5"
+          className="ui-btn h-7 w-7 px-0"
           onClick={() => void changeWeek(shiftWeek(week, 1))}
         >
           ›
         </button>
+        </div>
         <div className="flex-1" />
         <button
           type="button"
-          className="border border-[#999] bg-white px-3 py-0.5 font-semibold"
+          className={`ui-btn-primary ${exporting ? "opacity-50" : ""}`}
           onClick={() => void onExport()}
         >
           Xuất ảnh
@@ -259,7 +272,7 @@ export default function App() {
 
       <SheetDnd onDragStart={onDragStart} onDragEnd={onDragEnd} overlay={overlay}>
         <div className="flex min-h-0 flex-1">
-          <div className="min-w-0 flex-1 overflow-auto p-2">
+          <div className="min-w-0 flex-1 overflow-auto p-4">
             <ScheduleTable
               data={data}
               week={week}
