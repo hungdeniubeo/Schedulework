@@ -1,11 +1,18 @@
 import { appDataDir } from "@tauri-apps/api/path";
-import { BaseDirectory, exists, mkdir, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import {
+  BaseDirectory,
+  exists,
+  mkdir,
+  readTextFile,
+  writeTextFile,
+} from "@tauri-apps/plugin-fs";
 import { createDefaultData } from "./defaultData";
 import type { AppData, WeekRef } from "./types";
 import { weekKey } from "./week";
 
 const FILE = "data.json";
 const FS = { baseDir: BaseDirectory.AppData };
+let pendingSave: Promise<void> = Promise.resolve();
 
 async function ensureAppDataDir(): Promise<void> {
   const dir = await appDataDir();
@@ -30,9 +37,16 @@ export async function getData(): Promise<AppData> {
   };
 }
 
-export async function saveData(data: AppData): Promise<void> {
-  await ensureAppDataDir();
-  await writeTextFile(FILE, JSON.stringify(data, null, 2), FS);
+export function saveData(data: AppData): Promise<void> {
+  const contents = JSON.stringify(data, null, 2);
+  // Keep a slow earlier save from restoring entries after a schedule reset.
+  pendingSave = pendingSave
+    .catch(() => {})
+    .then(async () => {
+      await ensureAppDataDir();
+      await writeTextFile(FILE, contents, FS);
+    });
+  return pendingSave;
 }
 
 export function ensureWeekSchedule(data: AppData, ref: WeekRef): AppData {

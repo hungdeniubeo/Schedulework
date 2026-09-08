@@ -1,16 +1,16 @@
 import type { AppData } from "./types";
 
 export const SHIFT_COLORS = [
-  "#C00000",
-  "#FF0000",
-  "#FFC000",
-  "#FFFF00",
-  "#92D050",
-  "#00B050",
-  "#00B0F0",
-  "#0070C0",
-  "#002060",
-  "#7030A0",
+  "#C5D9C7",
+  "#E8C4C4",
+  "#EDD4B3",
+  "#EFE3B0",
+  "#CEE0B9",
+  "#AED5C9",
+  "#BDE0E7",
+  "#C7D4EA",
+  "#D9C6E0",
+  "#D8D8D4",
 ];
 
 function id(prefix: string, n: number): string {

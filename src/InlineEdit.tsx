@@ -31,13 +31,15 @@ export function InlineEdit({ value, className, onCommit }: Props) {
 
   if (!editing) {
     return (
-      <span
-        className={`cursor-text rounded-sm px-0.5 hover:bg-black/[0.04] ${className ?? ""}`}
+      <button
+        type="button"
+        className={`inline-edit ${className ?? ""}`}
         onClick={() => setEditing(true)}
-        title="Click để sửa"
+        title="Nhấn để đổi tên"
+        aria-label={`Đổi tên ${value}`}
       >
         {value}
-      </span>
+      </button>
     );
   }
 
@@ -45,7 +47,8 @@ export function InlineEdit({ value, className, onCommit }: Props) {
     <input
       ref={ref}
       value={draft}
-      className={`w-full rounded-sm border-0 bg-white/70 p-0 px-0.5 outline-none ring-1 ring-neutral-300 ${className ?? ""}`}
+      aria-label={`Tên của ${value}`}
+      className={`inline-edit-input ${className ?? ""}`}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {

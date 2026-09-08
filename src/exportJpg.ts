@@ -8,11 +8,21 @@ export async function exportScheduleJpg(week: WeekRef): Promise<void> {
   const el = document.getElementById("schedule-sheet");
   if (!el) return;
 
-  const canvas = await html2canvas(el, {
-    backgroundColor: "#ffffff",
-    scale: 2,
-    useCORS: true,
-  });
+  // html2canvas measures text with an inline image in the original document.
+  // Restore that layout while rendering so Tailwind's reset cannot shift text.
+  const exportStyle = document.createElement("style");
+  exportStyle.textContent = "img { display: inline-block; }";
+  document.head.appendChild(exportStyle);
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(el, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+    });
+  } finally {
+    exportStyle.remove();
+  }
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", 0.92),

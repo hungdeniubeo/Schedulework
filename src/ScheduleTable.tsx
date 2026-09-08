@@ -4,80 +4,93 @@ import {
   PointerSensor,
   pointerWithin,
   useDraggable,
+  useDndContext,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
-import { useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 import { InlineEdit } from "./InlineEdit";
-import { cellHasOverlap } from "./overlap";
-import type { AppData, Employee, Group, ScheduleEntry, ShiftType } from "./types";
-import { WEEKDAY_LABELS, formatDayHeader, weekDays, type WeekRef } from "./week";
+import { Icon } from "./Icon";
+import { getEntryIssue, issueDescription } from "./overlap";
+import { formatShiftLabel, shiftStyle } from "./shiftStyle";
+import type { AppData, ScheduleEntry, ShiftType } from "./types";
+import { formatDayHeader, weekDays, weekKey, type WeekRef } from "./week";
 
-function contrast(hex: string): string {
-  const c = hex.replace("#", "");
-  if (c.length < 6) return "#1f1f1d";
-  const r = parseInt(c.slice(0, 2), 16);
-  const g = parseInt(c.slice(2, 4), 16);
-  const b = parseInt(c.slice(4, 6), 16);
-  const l = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return l > 0.55 ? "#1f1f1d" : "#fafaf8";
-}
+const DAYS = [
+  "Thứ hai",
+  "Thứ ba",
+  "Thứ tư",
+  "Thứ năm",
+  "Thứ sáu",
+  "Thứ bảy",
+  "Chủ nhật",
+];
+const AVATAR_COLORS = ["sage", "peach", "lavender", "blue"];
 
-function shiftLabel(entry: ScheduleEntry, types: ShiftType[]): string {
-  if (entry.customStart && entry.customEnd) {
-    return `${entry.customStart}-${entry.customEnd}`;
-  }
-  return types.find((t) => t.id === entry.shiftTypeId)?.label ?? "";
-}
-
-function shiftColor(entry: ScheduleEntry, types: ShiftType[]): string {
-  return types.find((t) => t.id === entry.shiftTypeId)?.color ?? "#fff";
-}
-
-function HoverX({ onClick }: { onClick: () => void }) {
+function RemoveButton({
+  onClick,
+  label,
+}: {
+  onClick: () => void;
+  label: string;
+}) {
   return (
     <button
       type="button"
-      className="no-export absolute right-1 top-1 hidden h-4 w-4 items-center justify-center rounded text-[11px] leading-none text-ink-faint transition-colors hover:bg-black/10 hover:text-ink group-hover:flex"
+      className="remove-button no-export"
+      onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
-      aria-label="Xóa"
+      aria-label={label}
+      title={label}
     >
-      ×
+      <Icon name="close" size={13} />
     </button>
   );
 }
 
-export function PaletteShift({ shift }: { shift: ShiftType }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+export function PaletteShift({
+  shift,
+  selected,
+  onSelect,
+}: {
+  shift: ShiftType;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette:${shift.id}`,
     data: { kind: "palette", shiftTypeId: shift.id },
   });
-  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   return (
-    <div
+    <button
       ref={setNodeRef}
-      style={style}
-      className={`group relative flex cursor-grab items-center gap-2 rounded-md px-2.5 py-1.5 transition-colors hover:bg-canvas ${
-        isDragging ? "opacity-40" : ""
-      }`}
+      type="button"
+      style={shiftStyle(shift.color)}
+      className={`palette-shift ${selected ? "selected" : ""} ${isDragging ? "is-dragging" : ""}`}
       {...listeners}
       {...attributes}
+      aria-pressed={selected}
+      aria-label={`Chọn ca ${shift.label}`}
+      onClick={onSelect}
     >
-      <span
-        className="inline-block h-3.5 w-3.5 shrink-0 rounded-sm border border-black/10"
-        style={{ background: shift.color }}
-      />
-      <span className="flex-1 text-[13px] tabular-nums text-ink">
-        {shift.label}
+      <span className="shift-color-dot" />
+      <span className="palette-label">
+        {shift.label.split("/").map((part, i) => (
+          <span key={i}>{formatShiftLabel(part)}</span>
+        ))}
       </span>
-    </div>
+      <Icon
+        name={selected ? "check" : "grip"}
+        size={16}
+        className="palette-grip"
+      />
+    </button>
   );
 }
 
@@ -90,75 +103,131 @@ function EntryChip({
   types: ShiftType[];
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `entry:${entry.id}`,
-    data: { kind: "entry", entryId: entry.id },
+    data: { kind: "entry", entryId: entry.id, entry },
   });
-  const color = shiftColor(entry, types);
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    background: color,
-    color: contrast(color),
-    opacity: isDragging ? 0.4 : 1,
-  };
+  const type = types.find((t) => t.id === entry.shiftTypeId);
+  const label =
+    entry.customStart && entry.customEnd
+      ? `${entry.customStart}-${entry.customEnd}`
+      : (type?.label ?? "Ca làm");
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className={`group shift-line cursor-grab transition-[opacity,filter] hover:brightness-[0.97] ${
-        isDragging ? "opacity-40" : ""
-      }`}
-      {...listeners}
-      {...attributes}
+      className={`shift-line ${isDragging ? "is-dragging" : ""}`}
+      style={shiftStyle(type?.color ?? "#C5D9C7")}
     >
-      <span>{shiftLabel(entry, types)}</span>
-      <HoverX onClick={onRemove} />
+      <button
+        type="button"
+        ref={setNodeRef}
+        className="entry-drag-handle"
+        {...listeners}
+        {...attributes}
+        aria-label={`Di chuyển ca ${label}`}
+      >
+        {label.split("/").map((part, i) => (
+          <span key={i}>{formatShiftLabel(part)}</span>
+        ))}
+      </button>
+      <RemoveButton onClick={onRemove} label={`Xóa ca ${label}`} />
     </div>
   );
 }
 
 function Cell({
   employeeId,
+  employeeName,
   day,
   entries,
   types,
+  selectedShiftId,
+  today,
+  onAssignShift,
   onRemoveEntry,
 }: {
   employeeId: string;
+  employeeName: string;
   day: number;
   entries: ScheduleEntry[];
   types: ShiftType[];
+  selectedShiftId: string | null;
+  today: boolean;
+  onAssignShift: (employeeId: string, day: number) => void;
   onRemoveEntry: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `cell:${employeeId}:${day}`,
     data: { employeeId, dayOfWeek: day },
   });
-  const conflict = cellHasOverlap(entries, types);
+  const issue = entries
+    .map((entry) => getEntryIssue(entry, entries, types))
+    .find((value) => value != null);
+  const { active } = useDndContext();
+  const source = active?.data.current;
+  const movingEntry =
+    source?.kind === "entry" ? (source.entry as ScheduleEntry) : undefined;
+  const previewTypeId =
+    source?.kind === "palette"
+      ? (source.shiftTypeId as string)
+      : (movingEntry?.shiftTypeId ?? selectedShiftId);
+  const candidate: ScheduleEntry | null = previewTypeId
+    ? {
+        ...(movingEntry ?? {
+          id: "preview",
+          customStart: null,
+          customEnd: null,
+          sortOrderInCell: 0,
+        }),
+        employeeId,
+        dayOfWeek: day,
+        shiftTypeId: previewTypeId,
+      }
+    : null;
+  const blocked = candidate ? getEntryIssue(candidate, entries, types) : null;
   return (
     <td
       ref={setNodeRef}
-      className="h-10 min-h-[40px] p-0 align-top transition-colors"
-      style={{
-        background: isOver ? "#eef2ea" : "#fff",
-        boxShadow: conflict ? "inset 0 0 0 1.5px #d48a8a" : undefined,
-      }}
+      className={`schedule-cell ${day > 5 ? "weekend" : ""} ${today ? "today-cell" : ""} ${isOver ? (blocked ? "drop-blocked" : "drop-over") : ""} ${issue ? "has-conflict" : ""}`}
+      title={
+        issue
+          ? issueDescription(issue)
+          : blocked
+            ? issueDescription(blocked)
+            : undefined
+      }
     >
-      {entries.length === 0 ? (
-        <div className="flex h-10 items-center justify-center">
-          {isOver ? (
-            <span className="no-export text-[11px] text-ink-faint">Thả ca vào đây</span>
-          ) : null}
-        </div>
-      ) : (
-        entries.map((entry) => (
+      <div className="cell-content">
+        {entries.map((entry) => (
           <EntryChip
             key={entry.id}
             entry={entry}
             types={types}
             onRemove={() => onRemoveEntry(entry.id)}
           />
-        ))
+        ))}
+        {(!entries.length || selectedShiftId) && (
+          <button
+            type="button"
+            className={`cell-add no-export ${selectedShiftId ? "can-assign" : ""} ${entries.length ? "has-entries" : ""} ${blocked ? "is-blocked" : ""}`}
+            disabled={!selectedShiftId}
+            onClick={() => onAssignShift(employeeId, day)}
+            aria-label={`Thêm ca cho ${employeeName}, ${DAYS[day - 1]}`}
+          >
+            <span className="cell-dash">{isOver ? "Thả vào đây" : "–"}</span>
+            <Icon name="plus" size={16} />
+          </button>
+        )}
+      </div>
+      {isOver && blocked && (
+        <span className="drop-message no-export">
+          {blocked.kind === "overlap" ? "Trùng giờ" : "Giờ chưa hợp lệ"}
+        </span>
+      )}
+      {issue && (
+        <span className="conflict-label" title={issueDescription(issue)}>
+          <Icon name="alert" size={11} />
+          <span className="sr-only">{issueDescription(issue)}</span>
+        </span>
       )}
     </td>
   );
@@ -168,6 +237,11 @@ type Props = {
   data: AppData;
   week: WeekRef;
   exporting: boolean;
+  groupFilter: string;
+  issuesOnly: boolean;
+  search: string;
+  selectedShiftId: string | null;
+  onAssignShift: (employeeId: string, day: number) => void;
   addingGroup: boolean;
   addingEmployeeGroupId: string | null;
   onRenameGroup: (id: string, name: string) => void;
@@ -183,244 +257,303 @@ type Props = {
   onRemoveEntry: (id: string) => void;
 };
 
-export function ScheduleTable({
-  data,
-  week,
-  exporting,
-  addingGroup,
-  addingEmployeeGroupId,
-  onRenameGroup,
-  onDeleteGroup,
-  onRenameEmployee,
-  onDeleteEmployee,
-  onStartAddEmployee,
-  onCommitAddEmployee,
-  onCancelAddEmployee,
-  onStartAddGroup,
-  onCommitAddGroup,
-  onCancelAddGroup,
-  onRemoveEntry,
-}: Props) {
-  const days = useMemo(() => weekDays(week), [week]);
-  const groups = [...data.groups].sort((a, b) => a.sortOrder - b.sortOrder);
-
-  function employeesOf(group: Group): Employee[] {
-    return data.employees
-      .filter((e) => e.groupId === group.id)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-  }
-
-  function cellEntries(employeeId: string, day: number): ScheduleEntry[] {
-    const key = `${week.year}-${week.month}-${week.week}`;
-    return (data.schedules[key]?.entries ?? [])
-      .filter((e) => e.employeeId === employeeId && e.dayOfWeek === day)
-      .sort((a, b) => a.sortOrderInCell - b.sortOrderInCell);
-  }
-
+function AddNameInput({
+  placeholder,
+  onCommit,
+  onCancel,
+}: {
+  placeholder: string;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}) {
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-white">
-    <table className={`sheet ${exporting ? "exporting" : ""}`} id="schedule-sheet">
-      <colgroup>
-        <col style={{ width: 160 }} />
-        {WEEKDAY_LABELS.map((d) => (
-          <col key={d} />
-        ))}
-      </colgroup>
-      <thead>
-        <tr>
-          <th className="corner">Nhân viên</th>
-          {days.map((date, i) => (
-            <th
-              key={WEEKDAY_LABELS[i]}
-              className={`day-head ${i === 6 ? "text-ink-muted" : ""}`}
-            >
-              <div className="text-[12px] font-semibold tracking-wide">
-                {WEEKDAY_LABELS[i]}
-              </div>
-              <div className="mt-0.5 text-[11px] font-normal text-ink-muted">
-                {formatDayHeader(date)}
-              </div>
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {groups.map((group) => (
-          <GroupBlock
-            key={group.id}
-            group={group}
-            employees={employeesOf(group)}
-            adding={addingEmployeeGroupId === group.id}
-            colSpan={8}
-            cellEntries={cellEntries}
-            types={data.shiftTypes}
-            onRenameGroup={onRenameGroup}
-            onDeleteGroup={onDeleteGroup}
-            onRenameEmployee={onRenameEmployee}
-            onDeleteEmployee={onDeleteEmployee}
-            onStartAddEmployee={onStartAddEmployee}
-            onCommitAddEmployee={onCommitAddEmployee}
-            onCancelAddEmployee={onCancelAddEmployee}
-            onRemoveEntry={onRemoveEntry}
-          />
-        ))}
-        {groups.length === 0 && (
-          <tr className="no-export">
-            <td colSpan={8} className="bg-white px-4 py-10 text-center text-[13px] text-ink-faint">
-              Chưa có nhóm. Thêm nhóm để bắt đầu xếp lịch.
-            </td>
-          </tr>
-        )}
-        <tr className="no-export">
-          <td colSpan={8} className="bg-white p-1.5">
-            {addingGroup ? (
-              <input
-                autoFocus
-                className="ui-input w-full"
-                placeholder="Tên nhóm"
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v) onCommitAddGroup(v);
-                  else onCancelAddGroup();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    const v = e.currentTarget.value.trim();
-                    if (v) onCommitAddGroup(v);
-                    else onCancelAddGroup();
-                  }
-                  if (e.key === "Escape") onCancelAddGroup();
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                className="ui-btn-ghost"
-                onClick={onStartAddGroup}
-              >
-                + Nhóm mới
-              </button>
-            )}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    </div>
+    <input
+      autoFocus
+      className="ui-input add-name-input"
+      aria-label={placeholder}
+      placeholder={placeholder}
+      onBlur={(e) => {
+        const value = e.target.value.trim();
+        if (value) onCommit(value);
+        else onCancel();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          e.currentTarget.value = "";
+          e.currentTarget.blur();
+        }
+      }}
+    />
   );
 }
 
-const GROUP_TINTS = ["#f3ebd4", "#dde8dc", "#e4dfee", "#efe4d8"];
+export function ScheduleTable(props: Props) {
+  const {
+    data,
+    week,
+    exporting,
+    groupFilter,
+    issuesOnly,
+    search,
+    selectedShiftId,
+    onAssignShift,
+    addingGroup,
+    addingEmployeeGroupId,
+    onRenameGroup,
+    onDeleteGroup,
+    onRenameEmployee,
+    onDeleteEmployee,
+    onStartAddEmployee,
+    onCommitAddEmployee,
+    onCancelAddEmployee,
+    onStartAddGroup,
+    onCommitAddGroup,
+    onCancelAddGroup,
+    onRemoveEntry,
+  } = props;
+  const days = useMemo(() => weekDays(week), [week]);
+  const entries = data.schedules[weekKey(week)]?.entries ?? [];
+  const today = new Date().toDateString();
+  const normalizedSearch = (exporting ? "" : search)
+    .trim()
+    .toLocaleLowerCase("vi");
+  const groups = [...data.groups]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .filter((g) => exporting || groupFilter === "all" || groupFilter === g.id)
+    .map((group) => ({
+      ...group,
+      employees: data.employees
+        .filter(
+          (e) =>
+            e.groupId === group.id &&
+            e.name.toLocaleLowerCase("vi").includes(normalizedSearch) &&
+            (exporting ||
+              !issuesOnly ||
+              entries.some(
+                (entry) =>
+                  entry.employeeId === e.id &&
+                  getEntryIssue(entry, entries, data.shiftTypes),
+              )),
+        )
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    }))
+    .filter(
+      (g) =>
+        (!normalizedSearch && (!issuesOnly || exporting)) ||
+        g.employees.length > 0,
+    );
 
-function GroupBlock({
-  group,
-  employees,
-  adding,
-  colSpan,
-  cellEntries,
-  types,
-  onRenameGroup,
-  onDeleteGroup,
-  onRenameEmployee,
-  onDeleteEmployee,
-  onStartAddEmployee,
-  onCommitAddEmployee,
-  onCancelAddEmployee,
-  onRemoveEntry,
-}: {
-  group: Group;
-  employees: Employee[];
-  adding: boolean;
-  colSpan: number;
-  cellEntries: (employeeId: string, day: number) => ScheduleEntry[];
-  types: ShiftType[];
-  onRenameGroup: (id: string, name: string) => void;
-  onDeleteGroup: (id: string) => void;
-  onRenameEmployee: (id: string, name: string) => void;
-  onDeleteEmployee: (id: string) => void;
-  onStartAddEmployee: (groupId: string) => void;
-  onCommitAddEmployee: (groupId: string, name: string) => void;
-  onCancelAddEmployee: () => void;
-  onRemoveEntry: (id: string) => void;
-}) {
   return (
-    <>
-      <tr className="group-row">
-        <td
-          colSpan={colSpan}
-          className="group relative"
-          style={{ background: GROUP_TINTS[group.sortOrder % GROUP_TINTS.length] }}
-        >
-          <InlineEdit
-            value={group.name}
-            onCommit={(name) => onRenameGroup(group.id, name)}
-          />
-          <HoverX onClick={() => onDeleteGroup(group.id)} />
-        </td>
-      </tr>
-      {employees.length === 0 && (
-        <tr className="no-export">
-          <td className="px-3 py-2 text-[12px] text-ink-faint" colSpan={colSpan}>
-            Chưa có nhân viên trong nhóm này
-          </td>
-        </tr>
-      )}
-      {employees.map((emp) => (
-        <tr key={emp.id}>
-          <td className="name-cell group relative">
-            <InlineEdit
-              value={emp.name}
-              onCommit={(name) => onRenameEmployee(emp.id, name)}
-            />
-            <HoverX onClick={() => onDeleteEmployee(emp.id)} />
-          </td>
-          {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-            <Cell
-              key={day}
-              employeeId={emp.id}
-              day={day}
-              entries={cellEntries(emp.id, day)}
-              types={types}
-              onRemoveEntry={onRemoveEntry}
-            />
-          ))}
-        </tr>
-      ))}
-      <tr className="no-export">
-        <td className="p-1">
-          {adding ? (
-            <input
-              autoFocus
-              className="ui-input w-full"
-              placeholder="Tên nhân viên"
-              onBlur={(e) => {
-                const v = e.target.value.trim();
-                if (v) onCommitAddEmployee(group.id, v);
-                else onCancelAddEmployee();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  const v = e.currentTarget.value.trim();
-                  if (v) onCommitAddEmployee(group.id, v);
-                  else onCancelAddEmployee();
-                }
-                if (e.key === "Escape") onCancelAddEmployee();
-              }}
-            />
-          ) : (
-            <button
-              type="button"
-              className="ui-btn-ghost h-6 px-1.5 text-[12px]"
-              onClick={() => onStartAddEmployee(group.id)}
-            >
-              + Nhân viên
-            </button>
-          )}
-        </td>
-        {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-            <td key={d} className="bg-white" />
-        ))}
-      </tr>
-    </>
+    <div className="sheet-scroll">
+      <div
+        className={`schedule-sheet ${exporting ? "exporting" : ""}`}
+        id="schedule-sheet"
+      >
+        <div className="sheet-heading">
+          <div>
+            <span className="sheet-eyebrow">LỊCH LÀM VIỆC</span>
+            <h2>
+              Tuần {week.week} <span>·</span> Tháng {week.month}, {week.year}
+            </h2>
+          </div>
+          <span className="sheet-date-range">
+            <Icon name="calendar" size={15} />
+            {formatDayHeader(days[0])} — {formatDayHeader(days[6])}
+          </span>
+        </div>
+        <table className="sheet">
+          <colgroup>
+            <col className="employee-column" />
+            {DAYS.map((d) => (
+              <col key={d} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr>
+              <th className="corner" scope="col">
+                <span>
+                  <Icon name="users" size={15} />
+                  Nhân viên
+                </span>
+              </th>
+              {days.map((date, i) => (
+                <th
+                  key={i}
+                  scope="col"
+                  className={`day-head ${i > 4 ? "weekend" : ""} ${date.toDateString() === today ? "today" : ""}`}
+                >
+                  <span className="weekday">{DAYS[i]}</span>
+                  <span className="day-number">{formatDayHeader(date)}</span>
+                  {date.toDateString() === today && (
+                    <span className="today-dot" />
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => (
+              <Fragment key={group.id}>
+                <tr className="group-row">
+                  <td colSpan={8}>
+                    <div className="group-row-content">
+                      <span
+                        className={`group-mark ${AVATAR_COLORS[group.sortOrder % AVATAR_COLORS.length]}`}
+                      >
+                        <Icon name="grid" size={13} />
+                      </span>
+                      <InlineEdit
+                        value={group.name}
+                        onCommit={(name) => onRenameGroup(group.id, name)}
+                      />
+                      <span className="group-count">
+                        {group.employees.length} nhân viên
+                      </span>
+                      <div className="group-actions no-export">
+                        <button
+                          type="button"
+                          className="group-add"
+                          onClick={() => onStartAddEmployee(group.id)}
+                          aria-label={`Thêm nhân viên vào ${group.name}`}
+                        >
+                          <Icon name="plus" size={13} />
+                          <span className="sr-only">Thêm nhân viên</span>
+                        </button>
+                        <RemoveButton
+                          onClick={() => onDeleteGroup(group.id)}
+                          label={`Xóa nhóm ${group.name}`}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {group.employees.map((employee, employeeIndex) => (
+                  <tr key={employee.id} className="employee-row">
+                    <th scope="row" className="name-cell">
+                      <div className="employee-identity">
+                        <span
+                          className={`avatar ${AVATAR_COLORS[(group.sortOrder + employeeIndex) % AVATAR_COLORS.length]}`}
+                        >
+                          {employee.shortName
+                            .slice(0, 1)
+                            .toLocaleUpperCase("vi")}
+                        </span>
+                        <InlineEdit
+                          value={employee.name}
+                          onCommit={(name) =>
+                            onRenameEmployee(employee.id, name)
+                          }
+                        />
+                        <RemoveButton
+                          onClick={() => onDeleteEmployee(employee.id)}
+                          label={`Xóa nhân viên ${employee.name}`}
+                        />
+                      </div>
+                    </th>
+                    {days.map((date, i) => (
+                      <Cell
+                        key={i}
+                        employeeId={employee.id}
+                        employeeName={employee.name}
+                        day={i + 1}
+                        today={date.toDateString() === today}
+                        entries={entries
+                          .filter(
+                            (e) =>
+                              e.employeeId === employee.id &&
+                              e.dayOfWeek === i + 1,
+                          )
+                          .sort(
+                            (a, b) => a.sortOrderInCell - b.sortOrderInCell,
+                          )}
+                        types={data.shiftTypes}
+                        selectedShiftId={exporting ? null : selectedShiftId}
+                        onAssignShift={onAssignShift}
+                        onRemoveEntry={onRemoveEntry}
+                      />
+                    ))}
+                  </tr>
+                ))}
+                {addingEmployeeGroupId === group.id && (
+                  <tr className="no-export">
+                    <td colSpan={8} className="add-name-cell">
+                      <AddNameInput
+                        placeholder="Tên nhân viên mới"
+                        onCommit={(name) => onCommitAddEmployee(group.id, name)}
+                        onCancel={onCancelAddEmployee}
+                      />
+                    </td>
+                  </tr>
+                )}
+                {!group.employees.length &&
+                  addingEmployeeGroupId !== group.id && (
+                    <tr className="no-export">
+                      <td colSpan={8} className="empty-group">
+                        Chưa có nhân viên.{" "}
+                        <button
+                          type="button"
+                          onClick={() => onStartAddEmployee(group.id)}
+                        >
+                          Thêm người đầu tiên <Icon name="arrow" size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+              </Fragment>
+            ))}
+            {!groups.length && (
+              <tr className="no-export">
+                <td colSpan={8} className="empty-schedule">
+                  <Icon
+                    name={normalizedSearch ? "search" : "users"}
+                    size={28}
+                  />
+                  <strong>
+                    {normalizedSearch
+                      ? "Không tìm thấy nhân viên"
+                      : "Bắt đầu với đội ngũ của bạn"}
+                  </strong>
+                  <p>
+                    {normalizedSearch
+                      ? "Thử tìm bằng tên khác hoặc chọn tất cả nhóm."
+                      : "Thêm một nhóm và nhân viên để bắt đầu xếp lịch."}
+                  </p>
+                </td>
+              </tr>
+            )}
+            <tr className="no-export">
+              <td colSpan={8} className="add-group-cell">
+                {addingGroup ? (
+                  <AddNameInput
+                    placeholder="Tên nhóm mới"
+                    onCommit={onCommitAddGroup}
+                    onCancel={onCancelAddGroup}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="add-group-button"
+                    onClick={onStartAddGroup}
+                  >
+                    <Icon name="plus" size={16} />
+                    Thêm nhóm mới
+                  </button>
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="sheet-footer">
+          <span>
+            <span className="legend-dot" /> Ca làm việc
+          </span>
+          <span>
+            <span className="legend-dot conflict-dot" /> Ca trùng giờ
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -428,15 +561,17 @@ export function SheetDnd({
   children,
   onDragStart,
   onDragEnd,
+  onDragCancel,
   overlay,
 }: {
   children: ReactNode;
   onDragStart: (e: DragStartEvent) => void;
   onDragEnd: (e: DragEndEvent) => void;
+  onDragCancel: () => void;
   overlay: ReactNode;
 }) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
   return (
     <DndContext
@@ -444,6 +579,7 @@ export function SheetDnd({
       collisionDetection={pointerWithin}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onDragCancel={onDragCancel}
     >
       {children}
       <DragOverlay dropAnimation={null}>{overlay}</DragOverlay>
