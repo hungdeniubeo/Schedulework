@@ -11,6 +11,7 @@ import {
   entryLabel,
   getEntryIssue,
   issueDescription,
+  rangesForEntry,
   type EntryIssue,
 } from "./overlap";
 import type { AppData, ScheduleEntry, ShiftType, WeekRef } from "./types";
@@ -48,12 +49,32 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
+function clockLabel(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+function consolidatedLabel(ranges: { start: number; end: number }[]): string {
+  const merged: { start: number; end: number }[] = [];
+  for (const range of [...ranges].sort(
+    (a, b) => a.start - b.start || a.end - b.end,
+  )) {
+    const previous = merged[merged.length - 1];
+    if (previous && range.start <= previous.end) {
+      previous.end = Math.max(previous.end, range.end);
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged
+    .map((range) => `${clockLabel(range.start)}-${clockLabel(range.end)}`)
+    .join("/");
+}
+
 export default function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [week, setWeek] = useState<WeekRef>(currentWeekRef());
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [addingGroup, setAddingGroup] = useState(false);
   const [addingEmployeeGroupId, setAddingEmployeeGroupId] = useState<
     string | null
   >(null);
@@ -71,7 +92,6 @@ export default function App() {
   const [resetError, setResetError] = useState<string | null>(null);
   const dataRef = useRef<AppData | null>(null);
   const saveRevision = useRef(0);
-  const [issuesOnly, setIssuesOnly] = useState(false);
   const resetDialog = useRef<HTMLDialogElement>(null);
 
   const persist = useCallback(async (next: AppData) => {
@@ -120,7 +140,6 @@ export default function App() {
       if (!current) return;
       const withWeek = ensureWeekSchedule(current, next);
       setWeek(next);
-      setIssuesOnly(false);
       setNotice(null);
       if (withWeek !== current) await persist(withWeek);
     },
@@ -134,9 +153,6 @@ export default function App() {
     const issue = getEntryIssue(entry, entries, data?.shiftTypes ?? []);
     return issue ? [{ entry, issue }] : [];
   });
-  const issueCellCount = new Set(
-    weekIssues.map(({ entry }) => `${entry.employeeId}:${entry.dayOfWeek}`),
-  ).size;
 
   function patch(mut: (draft: AppData) => void) {
     if (!dataRef.current) return;
@@ -165,9 +181,10 @@ export default function App() {
       const id = e.active.data.current?.entryId as string;
       const entry = entries.find((x) => x.id === id);
       const label =
-        entry?.customStart && entry.customEnd
+        entry?.customLabel ||
+        (entry?.customStart && entry.customEnd
           ? `${entry.customStart}-${entry.customEnd}`
-          : data?.shiftTypes.find((s) => s.id === entry?.shiftTypeId)?.label;
+          : data?.shiftTypes.find((s) => s.id === entry?.shiftTypeId)?.label);
       setDragLabel(label ?? "");
     }
   }
@@ -221,6 +238,44 @@ export default function App() {
           entry.employeeId === candidate.employeeId &&
           entry.dayOfWeek === candidate.dayOfWeek,
       );
+      if (inCell.length > 0) {
+        const combinedEntries = [...inCell, candidate];
+        const ranges = combinedEntries.flatMap((entry) =>
+          rangesForEntry(
+            entry,
+            draft.shiftTypes.find((type) => type.id === entry.shiftTypeId),
+          ),
+        );
+        const earliestEntry = combinedEntries.reduce((earliest, entry) => {
+          const entryStart = rangesForEntry(
+            entry,
+            draft.shiftTypes.find((type) => type.id === entry.shiftTypeId),
+          )[0]?.start;
+          const earliestStart = rangesForEntry(
+            earliest,
+            draft.shiftTypes.find((type) => type.id === earliest.shiftTypeId),
+          )[0]?.start;
+          return (entryStart ?? Infinity) < (earliestStart ?? Infinity)
+            ? entry
+            : earliest;
+        });
+        const ids = new Set(inCell.map((entry) => entry.id));
+        schedule.entries = schedule.entries.filter(
+          (entry) => !ids.has(entry.id),
+        );
+        schedule.entries.push({
+          ...candidate,
+          shiftTypeId: earliestEntry.shiftTypeId,
+          customStart: null,
+          customEnd: null,
+          customLabel: consolidatedLabel(ranges),
+          sortOrderInCell: Math.min(
+            candidate.sortOrderInCell,
+            ...inCell.map((entry) => entry.sortOrderInCell),
+          ),
+        });
+        return;
+      }
       schedule.entries.push({
         ...candidate,
         sortOrderInCell:
@@ -272,7 +327,6 @@ export default function App() {
       setNotice(
         `Chưa thể xuất lịch. ${describeIssue(first.entry, first.issue, week, data)}. Sửa các ô được đánh dấu rồi xuất lại.`,
       );
-      setIssuesOnly(true);
       setGroupFilter("all");
       setSearch("");
       return;
@@ -351,16 +405,20 @@ export default function App() {
     return null;
   }
 
-  async function clearAllSchedules() {
-    if (!data || resetting || saveStatus === "saving") return;
+  async function clearCurrentWeekSchedule() {
+    const current = dataRef.current;
+    if (!current || resetting || saveStatus === "saving") return;
     setResetting(true);
     setResetError(null);
-    const next = ensureWeekSchedule({ ...data, schedules: {} }, week);
+    const next = structuredClone(current);
+    const schedule = next.schedules[key] ?? { entries: [] };
+    next.schedules[key] = schedule;
+    schedule.entries = [];
+    schedule.countOverrides = {};
     try {
       await saveData(next);
       dataRef.current = next;
       setData(next);
-      setIssuesOnly(false);
       setSaveStatus("saved");
       setSelectedShiftId(null);
       setDragLabel(null);
@@ -417,10 +475,7 @@ export default function App() {
   );
   const currentWeek = currentWeekRef();
   const isCurrentWeek = key === weekKey(currentWeek);
-  const scheduledShiftCount = Object.values(data.schedules).reduce(
-    (count, schedule) => count + schedule.entries.length,
-    0,
-  );
+  const scheduledShiftCount = entries.length;
 
   return (
     <div className="app-shell">
@@ -441,11 +496,6 @@ export default function App() {
             lịch ca<span className="brand-period">.</span>
           </span>
         </a>
-        <span className="header-divider" />
-        <h1 className="header-page">
-          <Icon name="calendar" size={16} />
-          Lịch làm việc
-        </h1>
         <div className={`save-status ${saveStatus}`} role="status">
           <span className="status-dot" />
           {saveStatus === "saving"
@@ -453,6 +503,39 @@ export default function App() {
             : saveStatus === "error"
               ? "Chưa lưu được"
               : "Đã lưu thay đổi"}
+        </div>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="ui-btn reset-button"
+            disabled={
+              scheduledShiftCount === 0 ||
+              exporting ||
+              saveStatus === "saving" ||
+              resetting
+            }
+            onClick={() => {
+              setResetError(null);
+              setResetOpen(true);
+            }}
+            title="Xóa các ca trong tuần đang hiển thị để xếp lại từ đầu"
+            aria-label="Xóa lịch tuần này"
+          >
+            <Icon name="trash" size={15} />
+            <span className="action-label">Xóa lịch tuần này</span>
+          </button>
+          <button
+            type="button"
+            className="ui-btn-primary export-button"
+            disabled={exporting}
+            onClick={() => void onExport()}
+            aria-label={exporting ? "Đang xuất lịch" : "Xuất lịch"}
+          >
+            <Icon name="download" size={17} />
+            <span className="action-label">
+              {exporting ? "Đang xuất…" : "Xuất lịch"}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -471,54 +554,6 @@ export default function App() {
             </button>
           </div>
         )}
-        <div className="overview-bar">
-          <div className="overview-stats">
-            <span>
-              <Icon name="users" size={17} />
-              <strong>{data.employees.length}</strong> nhân viên
-            </span>
-            <i />
-            <span>
-              <Icon name="grid" size={16} />
-              <strong>{data.groups.length}</strong> nhóm
-            </span>
-            <i />
-            <span>
-              <Icon name="clock" size={17} />
-              <strong>{entries.length}</strong> ca đã xếp
-            </span>
-          </div>
-          <div className="page-actions">
-            <button
-              type="button"
-              className="ui-btn reset-button"
-              disabled={
-                scheduledShiftCount === 0 ||
-                exporting ||
-                saveStatus === "saving" ||
-                resetting
-              }
-              onClick={() => {
-                setResetError(null);
-                setResetOpen(true);
-              }}
-              title="Xóa các ca đã xếp ở mọi tuần để xếp lịch lại từ đầu"
-            >
-              <Icon name="trash" size={15} />
-              Xóa toàn bộ lịch
-            </button>
-            <button
-              type="button"
-              className="ui-btn-primary export-button"
-              disabled={exporting}
-              onClick={() => void onExport()}
-            >
-              <Icon name="download" size={17} />
-              {exporting ? "Đang xuất lịch…" : "Xuất lịch"}
-            </button>
-          </div>
-        </div>
-
         <SheetDnd
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
@@ -639,33 +674,6 @@ export default function App() {
                 </div>
               </div>
               <div className="filter-toolbar">
-                <div
-                  className="group-tabs"
-                  role="group"
-                  aria-label="Lọc theo nhóm"
-                >
-                  <button
-                    type="button"
-                    className={groupFilter === "all" ? "active" : ""}
-                    aria-pressed={groupFilter === "all"}
-                    onClick={() => setGroupFilter("all")}
-                  >
-                    Tất cả<span>{data.employees.length}</span>
-                  </button>
-                  {[...data.groups]
-                    .sort((a, b) => a.sortOrder - b.sortOrder)
-                    .map((group) => (
-                      <button
-                        type="button"
-                        key={group.id}
-                        className={groupFilter === group.id ? "active" : ""}
-                        aria-pressed={groupFilter === group.id}
-                        onClick={() => setGroupFilter(group.id)}
-                      >
-                        {group.name}
-                      </button>
-                    ))}
-                </div>
                 <label className="employee-search">
                   <Icon name="search" size={16} />
                   <input
@@ -693,69 +701,15 @@ export default function App() {
                   </button>
                 </div>
               )}
-              {issueCellCount > 0 && (
-                <div className="validation-bar" role="status">
-                  <Icon name="alert" size={14} />
-                  <span>
-                    <strong>{issueCellCount} ô cần sửa</strong> · Trùng giờ hoặc
-                    giờ chưa hợp lệ
-                  </span>
-                  <button
-                    type="button"
-                    aria-pressed={issuesOnly}
-                    onClick={() => {
-                      setIssuesOnly((value) => !value);
-                      setGroupFilter("all");
-                      setSearch("");
-                    }}
-                  >
-                    {issuesOnly ? "Xem tất cả" : "Xem nhân viên cần sửa"}
-                  </button>
-                </div>
-              )}
               <ScheduleTable
                 data={data}
                 week={week}
                 exporting={exporting}
-                issuesOnly={issuesOnly && issueCellCount > 0}
                 groupFilter={groupFilter}
                 search={search}
                 selectedShiftId={selectedShiftId}
                 onAssignShift={assignShift}
-                addingGroup={addingGroup}
                 addingEmployeeGroupId={addingEmployeeGroupId}
-                onRenameGroup={(id, name) =>
-                  patch((d) => {
-                    const g = d.groups.find((x) => x.id === id);
-                    if (g) g.name = name;
-                  })
-                }
-                onDeleteGroup={(id) => {
-                  const count = data.employees.filter(
-                    (e) => e.groupId === id,
-                  ).length;
-                  if (
-                    count > 0 &&
-                    !window.confirm(`Xóa nhóm và ${count} nhân viên bên trong?`)
-                  ) {
-                    return;
-                  }
-                  if (groupFilter === id) setGroupFilter("all");
-                  patch((d) => {
-                    const empIds = new Set(
-                      d.employees
-                        .filter((e) => e.groupId === id)
-                        .map((e) => e.id),
-                    );
-                    d.groups = d.groups.filter((g) => g.id !== id);
-                    d.employees = d.employees.filter((e) => e.groupId !== id);
-                    for (const s of Object.values(d.schedules)) {
-                      s.entries = s.entries.filter(
-                        (x) => !empIds.has(x.employeeId),
-                      );
-                    }
-                  });
-                }}
                 onRenameEmployee={(id, name) =>
                   patch((d) => {
                     const e = d.employees.find((x) => x.id === id);
@@ -792,22 +746,16 @@ export default function App() {
                   setAddingEmployeeGroupId(null);
                 }}
                 onCancelAddEmployee={() => setAddingEmployeeGroupId(null)}
-                onStartAddGroup={() => {
-                  setGroupFilter("all");
-                  setSearch("");
-                  setAddingGroup(true);
-                }}
-                onCommitAddGroup={(name) => {
-                  patch((d) => {
-                    d.groups.push({
-                      id: newId(),
-                      name,
-                      sortOrder: d.groups.length,
-                    });
-                  });
-                  setAddingGroup(false);
-                }}
-                onCancelAddGroup={() => setAddingGroup(false)}
+                onSetCountOverride={(day, period, value) =>
+                  patch((draft) => {
+                    const schedule = draft.schedules[key] ?? { entries: [] };
+                    draft.schedules[key] = schedule;
+                    schedule.countOverrides ??= {};
+                    const overrideKey = `${day}:${period}`;
+                    if (value == null) delete schedule.countOverrides[overrideKey];
+                    else schedule.countOverrides[overrideKey] = value;
+                  })
+                }
                 onRemoveEntry={(id) =>
                   patch((d) => {
                     const s = d.schedules[key];
@@ -851,10 +799,11 @@ export default function App() {
           <span className="reset-dialog-icon">
             <Icon name="trash" size={22} />
           </span>
-          <h2 id="reset-title">Xóa toàn bộ lịch?</h2>
+          <h2 id="reset-title">Xóa lịch tuần này?</h2>
           <p id="reset-description">
-            Xóa <strong>{scheduledShiftCount} ca đã xếp ở mọi tuần</strong> để
-            bắt đầu lại. Nhóm, nhân viên và loại ca vẫn được giữ nguyên.
+            Xóa <strong>{scheduledShiftCount} ca của tuần {week.week}</strong> để
+            xếp lại từ đầu. Lịch của các tuần khác, nhóm, nhân viên và loại ca
+            vẫn được giữ nguyên.
           </p>
           <p className="reset-warning">Thao tác này không thể hoàn tác.</p>
           {resetError && (
@@ -876,10 +825,10 @@ export default function App() {
               type="button"
               className="ui-btn reset-confirm"
               disabled={resetting || saveStatus === "saving"}
-              onClick={() => void clearAllSchedules()}
+              onClick={() => void clearCurrentWeekSchedule()}
             >
               <Icon name="trash" size={14} />
-              {resetting ? "Đang xóa…" : "Xóa toàn bộ lịch"}
+              {resetting ? "Đang xóa…" : "Xóa lịch tuần này"}
             </button>
           </div>
         </dialog>

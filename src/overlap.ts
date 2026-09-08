@@ -26,8 +26,8 @@ export function rangesForEntry(
   entry: ScheduleEntry,
   shiftType: ShiftType | undefined,
 ): TimeRange[] {
-  let label = shiftType?.label;
-  if (entry.customStart != null || entry.customEnd != null) {
+  let label = entry.customLabel || shiftType?.label;
+  if (!entry.customLabel && (entry.customStart != null || entry.customEnd != null)) {
     if (!entry.customStart || !entry.customEnd) return [];
     label = `${entry.customStart}-${entry.customEnd}`;
   }
@@ -46,7 +46,9 @@ function intersection(a: TimeRange, b: TimeRange): TimeRange | null {
 }
 
 export function entryLabel(entry: ScheduleEntry, types: ShiftType[]): string {
-  return entry.customStart && entry.customEnd
+  return entry.customLabel
+    ? entry.customLabel
+    : entry.customStart && entry.customEnd
     ? `${entry.customStart}-${entry.customEnd}`
     : (types.find((type) => type.id === entry.shiftTypeId)?.label ??
         "Ca không xác định");

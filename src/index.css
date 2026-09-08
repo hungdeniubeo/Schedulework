@@ -4,7 +4,7 @@
 
 :root {
   font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+    "Helvetica Neue", "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
   color: #283d34;
   background: #f6f8f5;
   font-synthesis: none;
@@ -27,6 +27,7 @@ body,
   min-width: 360px;
   min-height: 100%;
   margin: 0;
+  overflow-x: hidden;
 }
 body {
   margin: 0;
@@ -231,9 +232,18 @@ svg {
   background: #b8574a;
 }
 .workspace {
-  max-width: 1700px;
+  width: min(100%, 1260px);
   margin: 0 auto;
-  padding: 12px 16px;
+  padding: 8px 12px 10px;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.header-actions .ui-btn,
+.header-actions .ui-btn-primary {
+  min-height: 31px;
 }
 .export-button {
   min-height: 32px;
@@ -243,10 +253,10 @@ svg {
 .overview-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
-  padding: 0 0 10px;
-  min-height: 42px;
+  padding: 0 0 8px;
+  min-height: 36px;
 }
 .overview-stats {
   display: flex;
@@ -277,8 +287,8 @@ svg {
 }
 .schedule-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 224px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 212px;
+  gap: 10px;
   align-items: start;
 }
 .schedule-layout.sidebar-hidden {
@@ -396,7 +406,8 @@ svg {
 .filter-toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: flex-end;
+  gap: 0;
   padding: 0 14px;
   min-height: 38px;
   border-bottom: 1px solid var(--line);
@@ -483,11 +494,14 @@ svg {
 }
 .sheet-scroll {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow: auto;
   overscroll-behavior-x: contain;
 }
 .schedule-sheet {
-  min-width: 820px;
+  width: 100%;
+  min-width: 0;
   background: white;
 }
 .sheet-heading {
@@ -533,7 +547,7 @@ svg {
   background: white;
 }
 .sheet .employee-column {
-  width: 148px;
+  width: 220px;
 }
 .sheet th,
 .sheet td {
@@ -618,8 +632,10 @@ svg {
   height: 26px;
 }
 .group-row-content {
+  position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   min-height: 26px;
 }
@@ -627,13 +643,15 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 21px;
-  height: 21px;
-  border-radius: 5px;
+  width: 25px;
+  height: 22px;
+  border-radius: 6px;
 }
-.group-row .inline-edit {
+.fixed-group-name {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.65px;
+  color: #405848;
 }
 .group-count {
   color: #7b8672;
@@ -642,7 +660,8 @@ svg {
   margin-left: 4px;
 }
 .group-actions {
-  margin-left: auto;
+  position: absolute;
+  right: 0;
   display: flex;
   align-items: center;
   gap: 15px;
@@ -698,17 +717,17 @@ svg {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 9px;
 }
 .avatar {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 550;
+  font-size: 12px;
+  font-weight: 650;
   border-radius: 50%;
 }
 .sage {
@@ -728,7 +747,17 @@ svg {
   color: #7c96a1;
 }
 .employee-identity .inline-edit {
-  font-size: 12px;
+  display: block;
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.employee-identity .inline-edit-input {
+  flex: 1;
+  font-size: 13px;
 }
 .remove-button {
   display: inline-flex;
@@ -776,6 +805,112 @@ svg {
 .sheet .has-conflict {
   box-shadow: inset 0 0 0 1.5px #da9b8f;
   background: #fffaf8;
+}
+
+.shift-summary-row th,
+.shift-summary-row td {
+  height: 25px;
+  background: #fbfcfa;
+  border-bottom-color: #dfe5dc;
+}
+.shift-summary-row:first-of-type th,
+.shift-summary-row:first-of-type td {
+  border-top: 2px solid #a9b7a5;
+}
+.shift-summary-row th {
+  text-align: center;
+  color: #365744;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.shift-summary-row th span {
+  display: inline-flex;
+  width: 54px;
+  height: 19px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: #e8f0e5;
+}
+.shift-summary-row td.zero-count {
+  background: #fff3b8;
+}
+.shift-summary-row td.zero-count input {
+  color: #6b5715;
+}
+.shift-summary-row td {
+  text-align: center;
+}
+.shift-summary-row input {
+  width: 100%;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #344c3b;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.shift-summary-row input::-webkit-inner-spin-button,
+.shift-summary-row input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+.shift-summary-row input:focus {
+  background: #eef5eb;
+  box-shadow: inset 0 0 0 1px #83a57d;
+}
+.staff-density-row th,
+.staff-density-row td {
+  height: 34px;
+  padding: 5px 8px;
+  border-top: 2px solid #cfcfcb;
+  background: #ffffff;
+}
+.staff-density-row th {
+  color: #555551;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.staff-density-row td {
+  position: relative;
+}
+.density-track {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e5e2;
+}
+.density-track > span {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: inherit;
+}
+.density-low > span {
+  background: #cf5d57;
+}
+.density-medium > span {
+  background: #d09a32;
+}
+.density-high > span {
+  background: #2d2d2b;
+}
+.staff-density-row small {
+  display: block;
+  margin-top: 3px;
+  color: #898985;
+  text-align: center;
+  font-size: 8px;
+  line-height: 9px;
+  font-variant-numeric: tabular-nums;
 }
 .cell-add {
   width: 100%;
@@ -1191,13 +1326,76 @@ svg {
   font-size: 10px;
   color: #859776;
 }
+.shift-preview-section .field-label {
+  margin-bottom: 7px;
+}
+.shift-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 6px 10px;
+  border: 1px solid var(--shift-border);
+  border-left: 4px solid var(--shift-dot);
+  border-radius: 7px;
+  background: var(--shift-bg);
+  color: var(--shift-ink);
+  box-shadow: 0 2px 6px #0000000a;
+}
+.shift-preview-card > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.shift-preview-card > svg {
+  opacity: 0.5;
+}
+.color-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 13px 0 8px;
+}
+.color-field-heading .field-label {
+  margin: 0;
+}
+.custom-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #777773;
+  font-size: 9px;
+  cursor: pointer;
+}
+.custom-color input {
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #cfcfcb;
+  border-radius: 5px;
+  background: white;
+  cursor: pointer;
+}
+.custom-color input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+.custom-color input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 2px;
+}
 .color-options {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 7px;
+  gap: 6px;
 }
 .color-option {
-  height: 25px;
+  height: 23px;
   border-radius: 5px;
   border: 1px solid #00000008;
   display: flex;
@@ -1206,7 +1404,7 @@ svg {
   color: #36503d;
 }
 .color-option.selected {
-  outline: 2px solid #7a9667;
+  outline: 2px solid #292929;
   outline-offset: 2px;
 }
 .form-buttons {
@@ -1313,17 +1511,17 @@ svg {
 
 @media (max-width: 1200px) {
   .workspace {
-    padding: 12px 16px;
+    padding: 10px 12px;
   }
   .app-header {
-    padding: 0 24px;
+    padding: 0 16px;
   }
   .schedule-layout {
-    grid-template-columns: minmax(0, 1fr) 236px;
-    gap: 18px;
+    grid-template-columns: minmax(0, 1fr) 212px;
+    gap: 10px;
   }
   .calendar-toolbar {
-    padding: 12px;
+    padding: 6px 12px;
   }
   .date-controls {
     gap: 3px;
@@ -1341,10 +1539,10 @@ svg {
     padding: 6px 7px;
   }
 }
-@media (max-width: 1000px) {
+@media (max-width: 1040px) {
   .schedule-layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
+    gap: 10px;
   }
   .shift-sidebar {
     order: -1;
@@ -1387,10 +1585,16 @@ svg {
     max-width: 340px;
   }
   .sheet .employee-column {
-    width: 154px;
+    width: 205px;
   }
 }
 @media (max-width: 600px) {
+  .schedule-column,
+  .sheet-scroll {
+    width: 100%;
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+  }
   .app-header {
     height: 62px;
     padding: 0 18px;
@@ -1412,7 +1616,23 @@ svg {
     display: none;
   }
   .save-status {
-    font-size: 10px;
+    display: none;
+  }
+  .header-actions {
+    margin-left: auto;
+  }
+  .header-actions .ui-btn,
+  .header-actions .ui-btn-primary {
+    width: 33px;
+    min-height: 33px;
+    padding: 0;
+  }
+  .header-actions .action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
   }
   .workspace {
     padding: 12px;
@@ -1516,10 +1736,10 @@ svg {
     font-size: 10px;
   }
   .schedule-sheet {
-    min-width: 800px;
+    min-width: 920px;
   }
   .sheet .employee-column {
-    width: 128px;
+    width: 205px;
   }
   .sheet .name-cell {
     padding-left: 12px;
@@ -1528,9 +1748,9 @@ svg {
     gap: 6px;
   }
   .avatar {
-    width: 24px;
-    height: 24px;
-    font-size: 11px;
+    width: 27px;
+    height: 27px;
+    font-size: 12px;
   }
   .workspace-footer {
     line-height: 1.7;
@@ -1540,6 +1760,160 @@ svg {
   .workspace-footer > span:last-child {
     display: none;
   }
+}
+
+/* Neutral monochrome interface theme */
+:root {
+  color: #292929;
+  background: #f5f5f4;
+  --green: #252525;
+  --green-dark: #111111;
+  --muted: #777773;
+  --line: #e4e4e1;
+}
+::selection {
+  background: #dededb;
+  color: #111111;
+}
+:focus-visible {
+  outline-color: #777773;
+}
+.brand,
+.header-page,
+.select-wrap select,
+.sheet-heading h2,
+.fixed-group-name,
+.employee-identity .inline-edit,
+.shift-summary-row th,
+.shift-summary-row input {
+  color: #292929;
+}
+.brand-icon,
+.ui-btn-primary {
+  background: #242424;
+  border-color: #242424;
+}
+.brand-period {
+  color: #777773;
+}
+.ui-btn-primary:hover:not(:disabled) {
+  background: #090909;
+  border-color: #090909;
+  box-shadow: 0 3px 8px #00000024;
+}
+.ui-btn,
+.today-button,
+.week-select,
+.week-navigation,
+.sidebar-toggle,
+.schedule-column,
+.shift-panel {
+  border-color: #dfdfdc;
+}
+.ui-btn,
+.today-button,
+.save-status,
+.sheet-date-range,
+.weekday,
+.sheet .corner,
+.employee-search,
+.group-count {
+  color: #767672;
+}
+.icon-button:hover,
+.today-button:hover:not(:disabled),
+.sidebar-toggle.active {
+  background: #ededeb;
+  color: #242424;
+}
+.status-dot,
+.week-badge > span {
+  background: #666662;
+}
+.sheet .day-head.today {
+  background: #ededeb;
+}
+.today .day-number {
+  background: #292929;
+  color: #ffffff;
+  box-shadow: 0 2px 4px #0000001c;
+}
+.today .weekday {
+  color: #3f3f3d;
+}
+.day-number,
+.weekend .day-number,
+.weekend .weekday,
+.week-select > svg:first-child,
+.group-add,
+.add-group-button,
+.sheet-date-range svg,
+.employee-search svg {
+  color: #747470;
+}
+.sheet .group-row td {
+  background: #f2f2f0;
+}
+.group-mark,
+.avatar.sage,
+.avatar.peach,
+.avatar.lavender,
+.avatar.blue {
+  background: #e8e8e5;
+  color: #60605c;
+}
+.group-mark-0 {
+  background: #d9d9d6;
+  color: #222220;
+}
+.group-mark-1 {
+  background: #e5e5e2;
+  color: #464642;
+}
+.group-mark-2 {
+  background: #eeeeeb;
+  color: #62625e;
+}
+.inline-edit:hover,
+.cell-add.can-assign,
+.palette-shift.selected {
+  background-color: #eeeeeb;
+}
+.inline-edit-input,
+.ui-input:focus {
+  border-color: #858581;
+  box-shadow: 0 0 0 3px #0000000a;
+}
+.sheet .drop-over {
+  background: #e9e9e6;
+  box-shadow: inset 0 0 0 2px #777773;
+}
+.shift-summary-row th,
+.shift-summary-row td {
+  background: #fafaf9;
+  border-color: #dfdfdc;
+}
+.shift-summary-row th span {
+  background: #e8e8e5;
+}
+.shift-summary-row input:focus {
+  background: #eeeeeb;
+  box-shadow: inset 0 0 0 1px #777773;
+}
+.selection-hint {
+  background: #f0f0ed;
+  border-color: #deded9;
+  color: #555551;
+}
+.selection-hint strong,
+.selection-hint button,
+.group-add:hover,
+.add-group-button:hover {
+  color: #222222;
+}
+.add-group-button:hover {
+  background: #f1f1ef;
+  border-color: #bdbdb8;
 }
 @media (hover: none) {
   .remove-button {

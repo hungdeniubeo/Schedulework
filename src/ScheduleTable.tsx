@@ -14,7 +14,7 @@ import {
 import { Fragment, useMemo, type ReactNode } from "react";
 import { InlineEdit } from "./InlineEdit";
 import { Icon } from "./Icon";
-import { getEntryIssue, issueDescription } from "./overlap";
+import { getEntryIssue, issueDescription, rangesForEntry } from "./overlap";
 import { formatShiftLabel, shiftStyle } from "./shiftStyle";
 import type { AppData, ScheduleEntry, ShiftType } from "./types";
 import { formatDayHeader, weekDays, weekKey, type WeekRef } from "./week";
@@ -109,9 +109,10 @@ function EntryChip({
   });
   const type = types.find((t) => t.id === entry.shiftTypeId);
   const label =
-    entry.customStart && entry.customEnd
+    entry.customLabel ||
+    (entry.customStart && entry.customEnd
       ? `${entry.customStart}-${entry.customEnd}`
-      : (type?.label ?? "Ca làm");
+      : (type?.label ?? "Ca làm"));
   return (
     <div
       className={`shift-line ${isDragging ? "is-dragging" : ""}`}
@@ -159,9 +160,6 @@ function Cell({
     id: `cell:${employeeId}:${day}`,
     data: { employeeId, dayOfWeek: day },
   });
-  const issue = entries
-    .map((entry) => getEntryIssue(entry, entries, types))
-    .find((value) => value != null);
   const { active } = useDndContext();
   const source = active?.data.current;
   const movingEntry =
@@ -187,14 +185,8 @@ function Cell({
   return (
     <td
       ref={setNodeRef}
-      className={`schedule-cell ${day > 5 ? "weekend" : ""} ${today ? "today-cell" : ""} ${isOver ? (blocked ? "drop-blocked" : "drop-over") : ""} ${issue ? "has-conflict" : ""}`}
-      title={
-        issue
-          ? issueDescription(issue)
-          : blocked
-            ? issueDescription(blocked)
-            : undefined
-      }
+      className={`schedule-cell ${day > 5 ? "weekend" : ""} ${today ? "today-cell" : ""} ${isOver ? (blocked ? "drop-blocked" : "drop-over") : ""}`}
+      title={blocked ? issueDescription(blocked) : undefined}
     >
       <div className="cell-content">
         {entries.map((entry) => (
@@ -223,12 +215,6 @@ function Cell({
           {blocked.kind === "overlap" ? "Trùng giờ" : "Giờ chưa hợp lệ"}
         </span>
       )}
-      {issue && (
-        <span className="conflict-label" title={issueDescription(issue)}>
-          <Icon name="alert" size={11} />
-          <span className="sr-only">{issueDescription(issue)}</span>
-        </span>
-      )}
     </td>
   );
 }
@@ -238,24 +224,71 @@ type Props = {
   week: WeekRef;
   exporting: boolean;
   groupFilter: string;
-  issuesOnly: boolean;
   search: string;
   selectedShiftId: string | null;
   onAssignShift: (employeeId: string, day: number) => void;
-  addingGroup: boolean;
   addingEmployeeGroupId: string | null;
-  onRenameGroup: (id: string, name: string) => void;
-  onDeleteGroup: (id: string) => void;
   onRenameEmployee: (id: string, name: string) => void;
   onDeleteEmployee: (id: string) => void;
   onStartAddEmployee: (groupId: string) => void;
   onCommitAddEmployee: (groupId: string, name: string) => void;
   onCancelAddEmployee: () => void;
-  onStartAddGroup: () => void;
-  onCommitAddGroup: (name: string) => void;
-  onCancelAddGroup: () => void;
   onRemoveEntry: (id: string) => void;
+  onSetCountOverride: (
+    day: number,
+    period: "S" | "T" | "Đ",
+    value: number | null,
+  ) => void;
 };
+
+const FIXED_GROUPS = [
+  { name: "Meat", icon: "meat" as const },
+  { name: "Soup", icon: "soup" as const },
+  { name: "Salad", icon: "salad" as const },
+];
+
+function periodsForRange(range: { start: number; end: number }): ("S" | "T" | "Đ")[] {
+  const windows = [
+    { period: "S" as const, start: 0, end: 14 * 60 },
+    { period: "T" as const, start: 14 * 60, end: 17 * 60 },
+    { period: "Đ" as const, start: 17 * 60, end: 24 * 60 },
+  ];
+  const coverage = windows.map((window) => ({
+    period: window.period,
+    overlap: Math.max(
+      0,
+      Math.min(range.end, window.end) - Math.max(range.start, window.start),
+    ),
+  }));
+  const substantial = coverage
+    .filter(({ overlap }) => overlap >= 2 * 60)
+    .map(({ period }) => period);
+  if (substantial.length) return substantial;
+  return [coverage.reduce((best, current) =>
+    current.overlap > best.overlap ? current : best,
+  ).period];
+}
+
+function compareEntriesByTime(
+  first: ScheduleEntry,
+  second: ScheduleEntry,
+  types: ShiftType[],
+): number {
+  const firstRanges = rangesForEntry(
+    first,
+    types.find((type) => type.id === first.shiftTypeId),
+  );
+  const secondRanges = rangesForEntry(
+    second,
+    types.find((type) => type.id === second.shiftTypeId),
+  );
+  const firstStart = firstRanges[0]?.start ?? Number.POSITIVE_INFINITY;
+  const secondStart = secondRanges[0]?.start ?? Number.POSITIVE_INFINITY;
+  if (firstStart !== secondStart) return firstStart - secondStart;
+  const firstEnd = firstRanges[0]?.end ?? Number.POSITIVE_INFINITY;
+  const secondEnd = secondRanges[0]?.end ?? Number.POSITIVE_INFINITY;
+  return firstEnd - secondEnd || first.sortOrderInCell - second.sortOrderInCell;
+}
 
 function AddNameInput({
   placeholder,
@@ -294,23 +327,17 @@ export function ScheduleTable(props: Props) {
     week,
     exporting,
     groupFilter,
-    issuesOnly,
     search,
     selectedShiftId,
     onAssignShift,
-    addingGroup,
     addingEmployeeGroupId,
-    onRenameGroup,
-    onDeleteGroup,
     onRenameEmployee,
     onDeleteEmployee,
     onStartAddEmployee,
     onCommitAddEmployee,
     onCancelAddEmployee,
-    onStartAddGroup,
-    onCommitAddGroup,
-    onCancelAddGroup,
     onRemoveEntry,
+    onSetCountOverride,
   } = props;
   const days = useMemo(() => weekDays(week), [week]);
   const entries = data.schedules[weekKey(week)]?.entries ?? [];
@@ -327,22 +354,33 @@ export function ScheduleTable(props: Props) {
         .filter(
           (e) =>
             e.groupId === group.id &&
-            e.name.toLocaleLowerCase("vi").includes(normalizedSearch) &&
-            (exporting ||
-              !issuesOnly ||
-              entries.some(
-                (entry) =>
-                  entry.employeeId === e.id &&
-                  getEntryIssue(entry, entries, data.shiftTypes),
-              )),
+            e.name.toLocaleLowerCase("vi").includes(normalizedSearch),
         )
         .sort((a, b) => a.sortOrder - b.sortOrder),
     }))
-    .filter(
-      (g) =>
-        (!normalizedSearch && (!issuesOnly || exporting)) ||
-        g.employees.length > 0,
-    );
+    .filter((g) => !normalizedSearch || g.employees.length > 0);
+  const automaticCounts = Array.from({ length: 7 }, () => ({
+    S: 0,
+    T: 0,
+    Đ: 0,
+  }));
+  for (const entry of entries) {
+    const type = data.shiftTypes.find((item) => item.id === entry.shiftTypeId);
+    const entryPeriods = new Set<"S" | "T" | "Đ">();
+    for (const range of rangesForEntry(entry, type)) {
+      for (const period of periodsForRange(range)) entryPeriods.add(period);
+    }
+    for (const period of entryPeriods)
+      automaticCounts[entry.dayOfWeek - 1][period] += 1;
+  }
+  const countOverrides = data.schedules[weekKey(week)]?.countOverrides ?? {};
+  const dailyStaffCounts = Array.from({ length: 7 }, (_, dayIndex) =>
+    new Set(
+      entries
+        .filter((entry) => entry.dayOfWeek === dayIndex + 1)
+        .map((entry) => entry.employeeId),
+    ).size,
+  );
 
   return (
     <div className="sheet-scroll">
@@ -399,17 +437,18 @@ export function ScheduleTable(props: Props) {
                   <td colSpan={8}>
                     <div className="group-row-content">
                       <span
-                        className={`group-mark ${AVATAR_COLORS[group.sortOrder % AVATAR_COLORS.length]}`}
+                        className={`group-mark group-mark-${group.sortOrder}`}
                       >
-                        <Icon name="grid" size={13} />
+                        <Icon
+                          name={FIXED_GROUPS[group.sortOrder]?.icon ?? "grid"}
+                          size={17}
+                        />
                       </span>
-                      <InlineEdit
-                        value={group.name}
-                        onCommit={(name) => onRenameGroup(group.id, name)}
-                      />
-                      <span className="group-count">
-                        {group.employees.length} nhân viên
-                      </span>
+                      <strong className="fixed-group-name">
+                        {(
+                          FIXED_GROUPS[group.sortOrder]?.name ?? group.name
+                        ).toLocaleUpperCase("vi")}
+                      </strong>
                       <div className="group-actions no-export">
                         <button
                           type="button"
@@ -420,10 +459,6 @@ export function ScheduleTable(props: Props) {
                           <Icon name="plus" size={13} />
                           <span className="sr-only">Thêm nhân viên</span>
                         </button>
-                        <RemoveButton
-                          onClick={() => onDeleteGroup(group.id)}
-                          label={`Xóa nhóm ${group.name}`}
-                        />
                       </div>
                     </div>
                   </td>
@@ -464,8 +499,8 @@ export function ScheduleTable(props: Props) {
                               e.employeeId === employee.id &&
                               e.dayOfWeek === i + 1,
                           )
-                          .sort(
-                            (a, b) => a.sortOrderInCell - b.sortOrderInCell,
+                          .sort((a, b) =>
+                            compareEntriesByTime(a, b, data.shiftTypes),
                           )}
                         types={data.shiftTypes}
                         selectedShiftId={exporting ? null : selectedShiftId}
@@ -522,36 +557,71 @@ export function ScheduleTable(props: Props) {
                 </td>
               </tr>
             )}
-            <tr className="no-export">
-              <td colSpan={8} className="add-group-cell">
-                {addingGroup ? (
-                  <AddNameInput
-                    placeholder="Tên nhóm mới"
-                    onCommit={onCommitAddGroup}
-                    onCancel={onCancelAddGroup}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className="add-group-button"
-                    onClick={onStartAddGroup}
+            {(["S", "T", "Đ"] as const).map((period) => (
+              <tr className="shift-summary-row" key={period}>
+                <th scope="row">
+                  <span>{{ S: "Sáng", T: "Trưa", Đ: "Tối" }[period]}</span>
+                </th>
+                {days.map((_, dayIndex) => {
+                  const overrideKey = `${dayIndex + 1}:${period}`;
+                  const value =
+                    countOverrides[overrideKey] ??
+                    automaticCounts[dayIndex][period];
+                  return (
+                    <td
+                      key={overrideKey}
+                      className={value === 0 ? "zero-count" : undefined}
+                    >
+                      <input
+                        key={`${overrideKey}:${value}`}
+                        type="number"
+                        min="0"
+                        defaultValue={value}
+                        aria-label={`Tổng ca ${period} ngày ${dayIndex + 1}`}
+                        title="Nhập số khác để chỉnh tay; xóa trắng để dùng số tự động"
+                        onBlur={(event) => {
+                          const raw = event.currentTarget.value.trim();
+                          onSetCountOverride(
+                            dayIndex + 1,
+                            period,
+                            raw === "" ? null : Math.max(0, Number(raw) || 0),
+                          );
+                        }}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr className="staff-density-row">
+              <th scope="row">Tỷ lệ bố trí</th>
+              {days.map((_, dayIndex) => {
+                const count = dailyStaffCounts[dayIndex];
+                const percent = data.employees.length
+                  ? Math.round((count / data.employees.length) * 100)
+                  : 0;
+                const level = percent < 40 ? "low" : percent < 70 ? "medium" : "high";
+                return (
+                  <td
+                    key={dayIndex}
+                    title={`${count}/${data.employees.length} nhân viên đã có ca`}
                   >
-                    <Icon name="plus" size={16} />
-                    Thêm nhóm mới
-                  </button>
-                )}
-              </td>
+                    <div
+                      className={`density-track density-${level}`}
+                      role="img"
+                      aria-label={`${count} trên ${data.employees.length} nhân viên, ${percent}%`}
+                    >
+                      <span style={{ width: `${percent}%` }} />
+                    </div>
+                    <small>
+                      {count}/{data.employees.length}
+                    </small>
+                  </td>
+                );
+              })}
             </tr>
           </tbody>
         </table>
-        <div className="sheet-footer">
-          <span>
-            <span className="legend-dot" /> Ca làm việc
-          </span>
-          <span>
-            <span className="legend-dot conflict-dot" /> Ca trùng giờ
-          </span>
-        </div>
       </div>
     </div>
   );

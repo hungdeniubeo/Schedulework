@@ -48,10 +48,12 @@ Mở file `.dmg` rồi kéo app vào Applications. Dữ liệu lịch nằm ở:
 - Khi thêm hoặc kéo ca sang ô khác, ứng dụng chặn ca trùng giờ với cùng nhân viên trong ngày đó và thông báo khoảng giờ bị trùng. Kéo không hợp lệ giữ nguyên ca ở ô cũ.
 - Hai ca nối tiếp nhau được phép (ví dụ `10:00–14:00` và `14:00–18:00`). Ca gãy chỉ giữ chỗ trong các khoảng làm việc; khoảng nghỉ giữa hai ca vẫn có thể xếp thêm ca khác.
 - Sửa giờ loại ca sẽ kiểm tra các lịch đã dùng loại ca đó ở mọi tuần. Thay đổi gây trùng giờ sẽ không được lưu; có thể sửa lịch liên quan trước rồi thử lại.
-- Lịch cũ có ca trùng hoặc giờ không hợp lệ có bộ lọc **Xem nhân viên cần sửa**. Phải xử lý các ô lỗi trước khi xuất lịch. Không tự xóa ca cũ.
+- Lịch cũ có ca trùng hoặc giờ không hợp lệ vẫn được giữ nguyên; ứng dụng thông báo rõ nhân viên, ngày và giờ bị trùng khi bấm **Xuất lịch**. Phải xử lý ca lỗi trước khi xuất.
 - Ca hiện được nhập trong cùng một ngày, không hỗ trợ ca qua đêm. Giờ kết thúc phải sau giờ bắt đầu; ca gãy không được có hai khoảng chồng lấn.
-- **Xuất lịch** lưu toàn bộ lịch tuần thành JPG, kèm tiêu đề và khoảng ngày (hộp thoại Save As, mặc định thư mục Ảnh). Bộ lọc nhóm và tìm kiếm không giới hạn nội dung ảnh xuất.
-- **Xóa toàn bộ lịch** xóa các ca đã xếp ở mọi tuần sau khi xác nhận; giữ nguyên nhóm, nhân viên và loại ca để xếp lại từ đầu.
+- Ba dòng **S / T / Đ** ở cuối bảng tự đếm từng khoảng làm việc theo khung sáng (đến 14h), trưa (14h–17h) và đêm (từ 17h). Khoảng giờ giao nhiều khung được xếp vào khung chiếm nhiều thời lượng nhất. Có thể nhập lại từng ô bằng tay; xóa trắng để dùng số tự động.
+- Ba khu vực làm việc cố định là **Meat, Soup, Salad**, có biểu tượng riêng và tiêu đề căn giữa để bảng dài vẫn dễ quét.
+- **Xuất lịch** lưu toàn bộ lịch tuần thành PNG sắc nét ở độ phân giải tối đa 3×, kèm tiêu đề và khoảng ngày (hộp thoại Save As, mặc định thư mục Ảnh). Bộ lọc nhóm và tìm kiếm không giới hạn nội dung ảnh xuất.
+- **Xóa lịch tuần này** chỉ xóa các ca trong tuần đang hiển thị sau khi xác nhận; lịch của các tuần khác, nhóm, nhân viên và loại ca được giữ nguyên.
 
 ## Kiểm tra logic xếp ca
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { SHIFT_COLORS } from "./defaultData";
 import { Icon } from "./Icon";
 import { PaletteShift } from "./ScheduleTable";
+import { formatShiftLabel, shiftStyle } from "./shiftStyle";
 import type { ShiftType } from "./types";
 
 type Form = {
@@ -59,6 +60,9 @@ export function ShiftSidebar({
   const [form, setForm] = useState<Form | null>(null);
   const [formError, setFormError] = useState("");
   const [splitShift, setSplitShift] = useState(false);
+  const previewLabel = form
+    ? `${form.start || "--:--"}-${form.end || "--:--"}${splitShift ? `/${form.start2 || "--:--"}-${form.end2 || "--:--"}` : ""}`
+    : "";
   function editShift(shift?: ShiftType) {
     setForm(shift ? formFromShift(shift) : emptyForm());
     setSplitShift(Boolean(shift?.label.includes("/")));
@@ -229,7 +233,35 @@ export function ShiftSidebar({
                 </label>
               </div>
             )}
-            <span className="field-label">Màu nhận diện</span>
+            <div className="shift-preview-section">
+              <span className="field-label">Xem trước trên lịch</span>
+              <div
+                className="shift-preview-card"
+                style={shiftStyle(form.color)}
+              >
+                <span className="shift-color-dot" />
+                <span>
+                  {previewLabel.split("/").map((part, index) => (
+                    <span key={index}>{formatShiftLabel(part)}</span>
+                  ))}
+                </span>
+                <Icon name="clock" size={14} />
+              </div>
+            </div>
+            <div className="color-field-heading">
+              <span className="field-label">Màu nhận diện</span>
+              <label className="custom-color">
+                Tùy chỉnh
+                <input
+                  type="color"
+                  value={form.color}
+                  onChange={(event) =>
+                    setForm({ ...form, color: event.target.value.toUpperCase() })
+                  }
+                  aria-label="Chọn màu tùy chỉnh"
+                />
+              </label>
+            </div>
             <div className="color-options">
               {Array.from(new Set([...SHIFT_COLORS, form.color])).map(
                 (color) => (

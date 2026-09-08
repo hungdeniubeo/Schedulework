@@ -26,11 +26,13 @@ export type ScheduleEntry = {
   shiftTypeId: string;
   customStart: string | null;
   customEnd: string | null;
+  customLabel?: string | null;
   sortOrderInCell: number;
 };
 
 export type WeekSchedule = {
   entries: ScheduleEntry[];
+  countOverrides?: Record<string, number>;
 };
 
 export type AppData = {

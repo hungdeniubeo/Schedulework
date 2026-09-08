@@ -13,10 +13,12 @@
     "windows": [
       {
         "title": "Lịch ca",
-        "width": 1440,
-        "height": 860,
-        "minWidth": 1024,
-        "minHeight": 640
+        "width": 1240,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true
       }
     ],
     "security": {

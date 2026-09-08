@@ -130,3 +130,21 @@ test("custom hours override the template, and h notation is parsed completely", 
   });
   assert.equal(getEntryIssue(custom, [entry("b", "morning")], types), null);
 });
+
+test("a consolidated custom label is parsed as the entry's effective hours", () => {
+  const consolidated = entry("a", "morning", {
+    customLabel: "10:00-17:00/18:00-23:00",
+  });
+  assert.deepEqual(rangesForEntry(consolidated, types[0]), [
+    { start: 600, end: 1020 },
+    { start: 1080, end: 1380 },
+  ]);
+  assert.equal(
+    getEntryIssue(
+      entry("b", "morning", { customStart: "17:00", customEnd: "18:00" }),
+      [consolidated],
+      types,
+    ),
+    null,
+  );
+});
