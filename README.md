@@ -2,12 +2,12 @@
 
 # 🗓️ ScheduleWork
 
-### *Xếp ca làm việc — kéo, thả, xong ngay.*
+### *Drag it. Drop it. Ship the schedule.*
 
-**Không server. Không internet. Không drama.**
-**Chỉ có bạn, chiếc Mac, và lịch làm tuần này.**
+**No server. No internet. No drama.**
+**Just you, your machine, and this week's shifts.**
 
-![Platform](https://img.shields.io/badge/platform-macOS-black?style=for-the-badge&logo=apple)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-black?style=for-the-badge&logo=apple)
 ![Offline](https://img.shields.io/badge/offline-100%25-brightgreen?style=for-the-badge)
 ![Built with](https://img.shields.io/badge/built%20with-Tauri%20%2B%20React-blue?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-active%20dev-orange?style=for-the-badge)
@@ -16,51 +16,51 @@
 
 ---
 
-## 🎯 Tại sao ScheduleWork tồn tại
+## 🎯 Why ScheduleWork exists
 
-Xếp lịch ca làm bằng Excel thì được, nhưng dò trùng ca bằng mắt thì... thôi khỏi. ScheduleWork sinh ra để bạn **kéo — thả — xuất ảnh**, còn việc phát hiện ca chồng chéo, tính thống kê Sáng/Trưa/Tối thì để máy lo.
+Building shift schedules in Excel works — until you have to eyeball it for overlapping shifts. ScheduleWork is built for **drag — drop — export**, while the app handles conflict detection and Morning/Afternoon/Evening stats for you.
 
-Không tài khoản. Không đăng nhập. Không mất dữ liệu vì mất mạng — vì **chẳng cần mạng**.
+No account. No login. No lost data from a dropped connection — because **there's no connection to drop**.
 
 ---
 
-## ⚡ Tính năng nổi bật
+## ⚡ Highlights
 
 | | |
 |---|---|
-| 🖱️ **Kéo & thả** | Gán ca chỉ bằng một cú kéo thả vào ô Nhân viên × Ngày |
-| 👥 **Quản lý nhóm** | Meat / Soup / Salad — hoặc tự đặt tên khu vực của bạn |
-| ⚠️ **Bắt lỗi tự động** | Ca chồng giờ? Viền đỏ + cảnh báo hiện ngay, không cần dò |
-| 🕒 **Ca gãy đôi (split shift)** | 09:00–12:00 rồi nghỉ, quay lại 17:00–21:00 — thoải mái |
-| 📊 **Thống kê S / T / Đ** | Tự đếm số ca Sáng – Trưa – Đêm mỗi ngày, sửa tay cũng được |
-| 🖼️ **Xuất ảnh nét căng** | PNG độ phân giải cao (tới 3×), đẹp như bảng Excel thật |
-| 💾 **100% offline** | Dữ liệu nằm im trên máy bạn, không đi đâu cả |
+| 🖱️ **Drag & drop** | Assign a shift with one drag into an Employee × Day cell |
+| 👥 **Group management** | Meat / Soup / Salad by default — or rename to whatever fits your team |
+| ⚠️ **Automatic conflict detection** | Overlapping shift? Red border + warning, instantly |
+| 🕒 **Split shifts** | 09:00–12:00, break, back for 17:00–21:00 — no problem |
+| 📊 **S / T / Đ stats** | Auto-counts Morning / Afternoon / Evening shifts per day, editable by hand |
+| 🖼️ **Crisp exports** | High-resolution PNG (up to 3× scale), sharp like a real spreadsheet |
+| 💾 **100% offline** | Your data stays on your machine, full stop |
 
 ---
 
-## 🛠️ Bộ công cụ đứng sau
+## 🛠️ Stack behind the curtain
 
 ```
 Tauri  ×  React  ×  TypeScript  ×  Vite  ×  Tailwind  ×  Rust
 ```
 
-Nhẹ, nhanh, và không ngốn RAM như Electron.
+Light, fast, and doesn't eat RAM the way Electron does.
 
 ---
 
-## 🚀 Bắt đầu trong 4 bước
+## 🍎 Setup — macOS
 
 <details>
-<summary><b>1️⃣ Cài Xcode Command Line Tools</b></summary>
+<summary><b>1️⃣ Install Xcode Command Line Tools</b></summary>
 
 ```bash
 xcode-select --install
 ```
-Có rồi thì bỏ qua bước này.
+Skip if already installed.
 </details>
 
 <details>
-<summary><b>2️⃣ Cài Rust</b></summary>
+<summary><b>2️⃣ Install Rust</b></summary>
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -69,7 +69,7 @@ source "$HOME/.cargo/env"
 </details>
 
 <details>
-<summary><b>3️⃣ Cài dependencies</b></summary>
+<summary><b>3️⃣ Install dependencies</b></summary>
 
 ```bash
 cd ~/lich-ca
@@ -78,154 +78,209 @@ npm install
 </details>
 
 <details>
-<summary><b>4️⃣ Chạy thử</b></summary>
+<summary><b>4️⃣ Run it</b></summary>
 
 ```bash
 npm run tauri dev
 ```
-🎉 Xong! Mở app lên và bắt đầu xếp ca.
+🎉 That's it — the app should launch.
 </details>
 
 ---
 
-## 📦 Đóng gói cho macOS
+## 🪟 Setup — Windows
+
+<details>
+<summary><b>1️⃣ Install prerequisites</b></summary>
+
+Tauri on Windows needs the **Microsoft C++ Build Tools** and **WebView2** (WebView2 already ships with most Windows 10/11 machines, but installing manually never hurts):
+
+- [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — during install, check **"Desktop development with C++"**
+- [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+</details>
+
+<details>
+<summary><b>2️⃣ Install Rust</b></summary>
+
+Download and run `rustup-init.exe` from [rustup.rs](https://rustup.rs), or via winget:
+
+```powershell
+winget install --id Rustlang.Rustup
+```
+
+Restart your terminal afterward so `cargo` shows up on `PATH`.
+</details>
+
+<details>
+<summary><b>3️⃣ Install Node.js</b></summary>
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+```
+</details>
+
+<details>
+<summary><b>4️⃣ Install dependencies</b></summary>
+
+```powershell
+cd ~\lich-ca
+npm install
+```
+</details>
+
+<details>
+<summary><b>5️⃣ Run it</b></summary>
+
+```powershell
+npm run tauri dev
+```
+🎉 Same command as macOS — Tauri handles the platform differences under the hood.
+</details>
+
+---
+
+## 📦 Building for release
 
 ```bash
 cd ~/lich-ca
 npm run tauri build
 ```
 
-File build nằm ở `src-tauri/target/release/bundle/`:
+Output lands in `src-tauri/target/release/bundle/`:
 
-| Chip | App | DMG |
-|---|---|---|
-| 🍏 Apple Silicon | `macos/Lich ca.app` | `dmg/Lich ca_0.1.0_aarch64.dmg` |
-| 💻 Intel | *(tương tự, đổi `aarch64` → `x64`)* | |
+| Platform | Output |
+|---|---|
+| 🍏 Apple Silicon | `.app` in `macos/`, `.dmg` in `dmg/Lich ca_0.1.0_aarch64.dmg` |
+| 💻 Intel Mac | same as above, `x64` instead of `aarch64` |
+| 🪟 Windows | `.msi` installer in `bundle/msi/`, and/or `.exe` in `bundle/nsis/` |
 
-Mở file `.dmg`, kéo ScheduleWork vào **Applications** — xong.
-
----
-
-## 🖱️ Cách gán ca
-
-**Cách 1 — Kéo & thả**
-Kéo loại ca từ panel bên phải, thả vào ô `Nhân viên × Ngày`.
-
-**Cách 2 — Chọn & click**
-Chọn loại ca → click vào ô lịch muốn gán.
-Nhấn `Esc` hoặc bấm **Deselect** để thoát chế độ gán ca.
+**macOS:** open the `.dmg`, drag ScheduleWork into **Applications**.
+**Windows:** run the `.msi` or `.exe` installer and follow the prompts.
 
 ---
 
-## 👥 Quản lý nhân viên & nhóm
+## 🖱️ Assigning shifts
 
-- 🔍 Tìm nhân viên theo tên
-- 🧩 Lọc lịch theo nhóm
-- ✏️ Sửa tên nhân viên / tên nhóm
+**Option 1 — Drag & drop**
+Drag a shift type from the right-side panel, drop it into an `Employee × Day` cell.
 
-Khu vực mặc định: **Meat · Soup · Salad** — mỗi khu có icon riêng và tiêu đề canh giữa, dễ nhìn kể cả khi lịch dài.
-
----
-
-## 🎨 Tuỳ chỉnh loại ca
-
-Bấm icon ✏️ cạnh loại ca để chỉnh:
-- Tên ca
-- Giờ bắt đầu / kết thúc
-- Màu hiển thị
-
-> ⚠️ Đổi giờ ca sẽ khiến ScheduleWork kiểm tra lại **mọi lịch đang dùng ca đó**. Nếu gây xung đột, thay đổi sẽ **không được lưu**.
+**Option 2 — Select & click**
+Select a shift type → click the target schedule cell.
+Press `Esc` or click **Deselect** to exit assignment mode.
 
 ---
 
-## ⚠️ Bắt lỗi trùng ca
+## 👥 Employees & groups
 
-ScheduleWork tự động phát hiện ca chồng giờ của cùng một nhân viên trong cùng một ngày:
+- 🔍 Search employees by name
+- 🧩 Filter the schedule by group
+- ✏️ Edit employee names / group names
 
-- 🔴 Viền đỏ quanh ca bị lỗi
-- ⚠️ Icon cảnh báo hiện ra
-- 🕒 Hiển thị rõ khung giờ trùng nhau
-
-Kéo ca vào chỗ không hợp lệ? Nó tự động **bật lại vị trí cũ** — không hỏng gì cả.
+Default work areas: **Meat · Soup · Salad** — each with its own icon and centered heading, so long schedules stay easy to scan.
 
 ---
 
-## 🕒 Luật xếp ca
+## 🎨 Editing shift types
 
-**Ca nối đuôi nhau — OK:**
+Click the ✏️ icon next to a shift type to change:
+- Shift name
+- Start / end time
+- Display color
+
+> ⚠️ Changing a shift's hours re-checks **every schedule currently using that shift type**. If it creates a conflict, the change **won't be saved**.
+
+---
+
+## ⚠️ Conflict detection
+
+ScheduleWork automatically flags overlapping shifts for the same employee on the same day:
+
+- 🔴 Red border around the affected shift
+- ⚠️ Warning icon
+- 🕒 The conflicting time range shown clearly
+
+Drag a shift somewhere invalid, and it **snaps back** to its original spot — nothing breaks.
+
+---
+
+## 🕒 Scheduling rules
+
+**Back-to-back shifts — fine:**
 ```
-10:00 – 14:00  →  14:00 – 18:00   ✅ hợp lệ
+10:00 – 14:00  →  14:00 – 18:00   ✅ valid
 ```
 
-**Ca gãy đôi (split shift):**
+**Split shifts:**
 ```
-09:00 – 12:00   (làm)
-12:00 – 17:00   (nghỉ — có thể xếp ca khác vào đây)
-17:00 – 21:00   (làm)
+09:00 – 12:00   (working)
+12:00 – 17:00   (gap — free for another shift)
+17:00 – 21:00   (working)
 ```
-Hai khoảng làm việc của ca gãy đôi **không được chồng lên nhau**.
+The two working periods of a split shift **cannot overlap each other**.
 
-**Chưa hỗ trợ:** ca qua đêm kiểu `22:00 – 06:00`. Giờ kết thúc luôn phải sau giờ bắt đầu.
+**Not supported yet:** overnight shifts like `22:00 – 06:00`. End time must always be later than start time.
 
 ---
 
-## 📊 Thống kê Sáng / Trưa / Đêm
+## 📊 Morning / Afternoon / Evening stats
 
-| Ký hiệu | Khung giờ |
+| Label | Time range |
 |:---:|---|
-| **S** | Sáng — trước 14:00 |
-| **T** | Trưa — 14:00 đến 17:00 |
-| **Đ** | Đêm/Tối — từ 17:00 |
+| **S** | Morning — before 14:00 |
+| **T** | Afternoon — 14:00 to 17:00 |
+| **Đ** | Evening — from 17:00 |
 
-Ca nào rơi vào nhiều khung giờ thì được tính vào khung giờ có **phần thời gian lớn nhất**. Muốn sửa tay cũng được — xoá giá trị đã sửa là tự quay về số tính toán gốc.
-
----
-
-## 🖼️ Xuất lịch tuần
-
-Bấm **Export Schedule** → lưu cả lịch tuần thành ảnh PNG chất lượng cao, gồm:
-
-📌 Tiêu đề lịch · 📅 Khoảng ngày trong tuần · 👥 Danh sách nhân viên · 🎨 Ca đã gán · 📊 Thống kê nhân sự
-
-> 🔍 Bộ lọc tìm kiếm/nhóm chỉ ảnh hưởng giao diện — ảnh xuất ra **luôn đầy đủ cả tuần**.
-
-Nếu lịch hiện tại đang có ca trùng giờ hoặc giờ không hợp lệ, ScheduleWork sẽ chỉ rõ nhân viên – ngày – khung giờ trùng, và **chặn xuất ảnh** cho tới khi bạn sửa xong.
+A shift spanning multiple periods is counted toward whichever period holds the **largest share of its working time**. Values can be edited by hand — clear a manual entry and it snaps back to the calculated value.
 
 ---
 
-## 🗑️ Xoá lịch tuần hiện tại
+## 🖼️ Exporting the schedule
 
-**Clear Current Week** chỉ xoá ca của tuần đang xem (có hỏi xác nhận trước khi xoá). Không đụng đến: lịch các tuần khác, nhân viên, nhóm, loại ca, hay cài đặt ứng dụng.
+Click **Export Schedule** to save the full week as a high-resolution PNG, including:
+
+📌 Schedule title · 📅 Week date range · 👥 Employee list · 🎨 Assigned shifts · 📊 Staffing stats
+
+> 🔍 Search/group filters only affect the visible UI — the exported image **always includes the full week**.
+
+If the current schedule has overlapping shifts or invalid hours, ScheduleWork shows exactly which employee, date, and time range conflict, and **blocks export** until it's fixed.
 
 ---
 
-## 💾 Dữ liệu nằm ở đâu?
+## 🗑️ Clearing the current week
+
+**Clear Current Week** removes only the shifts for the week you're viewing (with a confirmation prompt first). Untouched: other weeks' schedules, employees, groups, shift types, and app settings.
+
+---
+
+## 💾 Where your data lives
 
 ```
 ~/Library/Application Support/com.lichca.scheduler/data.json
 ```
 
-Không server, không cloud, không ai đọc được trừ bạn.
+*(Windows equivalent: `%APPDATA%\com.lichca.scheduler\data.json`)*
+
+No server, no cloud, no one reads it but you.
 
 ---
 
-## 🧪 Test
+## 🧪 Testing
 
 ```bash
 npm test
 ```
 
-Bộ test bao phủ: phát hiện trùng ca · ca nối đuôi · ca gãy đôi · kiểm tra giờ làm hợp lệ.
+Covers: conflict detection · back-to-back shifts · split shifts · working-hour validation.
 
 ---
 
-## 📁 Cấu trúc dự án
+## 📁 Project structure
 
 ```
 ScheduleWork/
 ├── src/               # React frontend
 ├── src-tauri/         # Tauri / Rust backend
-├── tests/             # Logic xếp lịch
+├── tests/             # Scheduling logic tests
 ├── public/            # Static assets
 ├── package.json
 ├── vite.config.ts
@@ -235,18 +290,18 @@ ScheduleWork/
 
 ---
 
-## 🔒 Offline-first, thật sự offline
+## 🔒 Actually offline-first
 
-Không đăng nhập · không tài khoản · không server · không cần mạng · dữ liệu ở lại trên máy bạn.
+No sign-in · no account · no server · no internet connection required · your data stays on your device.
 
-Hợp cho quán ăn, cửa hàng, nhóm nhỏ — bất kỳ ai cần xếp ca tuần mà không muốn đau đầu.
+Built for restaurants, retail stores, and small teams who need a simple, efficient way to manage weekly shift schedules.
 
 ---
 
 <div align="center">
 
-### 📌 Đang phát triển tích cực
+### 📌 Actively in development
 
-Bug report, feature request, góp ý — đều được chào đón 🙌
+Bug reports, feature requests, and suggestions are all welcome 🙌
 
 </div>
