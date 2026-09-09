@@ -10,6 +10,8 @@ export type Employee = {
   shortName: string;
   groupId: string;
   sortOrder: number;
+  isHeadChef?: boolean;
+  isNew?: boolean;
 };
 
 export type ShiftType = {

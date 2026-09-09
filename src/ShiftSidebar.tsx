@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { SHIFT_COLORS } from "./defaultData";
 import { Icon } from "./Icon";
 import { PaletteShift } from "./ScheduleTable";
-import { formatShiftLabel, shiftStyle } from "./shiftStyle";
+import { formatShiftLabel, semanticShiftColor, shiftStyle } from "./shiftStyle";
 import type { ShiftType } from "./types";
 
 type Form = {
@@ -11,14 +10,12 @@ type Form = {
   end: string;
   start2: string;
   end2: string;
-  color: string;
 };
 const emptyForm = (): Form => ({
   start: "10:00",
   end: "14:00",
   start2: "",
   end2: "",
-  color: SHIFT_COLORS[0],
 });
 const normalizeClock = (clock = "") => {
   const match = /^(\d{1,2})(?:[:h](\d{2})?)?$/.exec(clock.trim());
@@ -34,7 +31,6 @@ function formFromShift(shift: ShiftType): Form {
     end: normalizeClock(end),
     start2: start2 ? normalizeClock(start2) : "",
     end2: end2 ? normalizeClock(end2) : "",
-    color: shift.color,
   };
 }
 
@@ -46,6 +42,9 @@ type Props = {
   onSelect: (id: string) => void;
   onSave: (shift: Omit<ShiftType, "id"> & { id?: string }) => string | null;
   onDelete: (id: string) => void;
+  weeklyShiftCount: number;
+  scheduledEmployeeCount: number;
+  totalEmployees: number;
 };
 
 export function ShiftSidebar({
@@ -56,6 +55,9 @@ export function ShiftSidebar({
   onSelect,
   onSave,
   onDelete,
+  weeklyShiftCount,
+  scheduledEmployeeCount,
+  totalEmployees,
 }: Props) {
   const [form, setForm] = useState<Form | null>(null);
   const [formError, setFormError] = useState("");
@@ -154,7 +156,7 @@ export function ShiftSidebar({
               const issue = onSave({
                 id: form.id,
                 label: `${form.start}-${form.end}${splitShift ? `/${form.start2}-${form.end2}` : ""}`,
-                color: form.color,
+                color: semanticShiftColor(`${form.start}-${form.end}${splitShift ? `/${form.start2}-${form.end2}` : ""}`),
                 isPreset: false,
               });
               if (issue) {
@@ -237,7 +239,7 @@ export function ShiftSidebar({
               <span className="field-label">Xem trước trên lịch</span>
               <div
                 className="shift-preview-card"
-                style={shiftStyle(form.color)}
+                style={shiftStyle(semanticShiftColor(previewLabel))}
               >
                 <span className="shift-color-dot" />
                 <span>
@@ -248,37 +250,7 @@ export function ShiftSidebar({
                 <Icon name="clock" size={14} />
               </div>
             </div>
-            <div className="color-field-heading">
-              <span className="field-label">Màu nhận diện</span>
-              <label className="custom-color">
-                Tùy chỉnh
-                <input
-                  type="color"
-                  value={form.color}
-                  onChange={(event) =>
-                    setForm({ ...form, color: event.target.value.toUpperCase() })
-                  }
-                  aria-label="Chọn màu tùy chỉnh"
-                />
-              </label>
-            </div>
-            <div className="color-options">
-              {Array.from(new Set([...SHIFT_COLORS, form.color])).map(
-                (color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    className={`color-option ${form.color === color ? "selected" : ""}`}
-                    style={{ background: color }}
-                    onClick={() => setForm({ ...form, color })}
-                    aria-label={`Màu ${color}`}
-                    aria-pressed={form.color === color}
-                  >
-                    {form.color === color && <Icon name="check" size={14} />}
-                  </button>
-                ),
-              )}
-            </div>
+            <p className="semantic-color-note">Màu được áp dụng tự động theo giờ ca: sáng, tối, ca ghép hoặc cả ngày.</p>
             {formError && (
               <p className="form-error" role="alert">
                 {formError}
@@ -310,6 +282,13 @@ export function ShiftSidebar({
             </button>
           </div>
         )}
+        <section className="week-widget" aria-label="Tổng quan tuần">
+          <div className="week-widget-heading"><Icon name="users" size={15} /><span>Tổng quan tuần</span></div>
+          <div className="week-widget-stats">
+            <div><strong>{weeklyShiftCount}</strong><span>ca đã xếp</span></div>
+            <div><strong>{scheduledEmployeeCount}/{totalEmployees}</strong><span>nhân viên có ca</span></div>
+          </div>
+        </section>
       </section>
     </aside>
   );

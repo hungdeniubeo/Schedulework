@@ -1,26 +1,7 @@
 import type { AppData } from "./types";
 
 export const SHIFT_COLORS = [
-  "#D8D8D6",
-  "#C9C9C7",
-  "#E7C5C5",
-  "#F0BFC2",
-  "#E9C9B6",
-  "#F1D2AE",
-  "#EFDDA8",
-  "#F4E7B5",
-  "#D8DEB4",
-  "#C5DDBE",
-  "#B8DCCF",
-  "#B9DDD9",
-  "#BBDDE7",
-  "#C4D5EA",
-  "#BAC9E5",
-  "#C9C4E8",
-  "#D7C3E3",
-  "#E7C3DA",
-  "#D7CDC4",
-  "#C8D0D2",
+  "#70AD47", "#A6A6A6", "#C55A5A", "#ED7D31", "#5B9BD5",
 ];
 
 function id(prefix: string, n: number): string {
@@ -30,6 +11,16 @@ function id(prefix: string, n: number): string {
 export function makeShortName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return parts[parts.length - 1] || name.trim();
+}
+
+export function normalizeEmployeeName(name: string): string {
+  return name
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("vi")
+    .replace(/(^|[\s'’\-])\p{L}/gu, (letter) =>
+      letter.toLocaleUpperCase("vi"),
+    );
 }
 
 export function createDefaultData(): AppData {
@@ -49,13 +40,13 @@ export function createDefaultData(): AppData {
       { id: id("e", 7), name: "Hoa", shortName: "Hoa", groupId: id("g", 3), sortOrder: 1 },
     ],
     shiftTypes: [
-      { id: id("s", 1), label: "10:00-14:00", color: "#D8D8D6", isPreset: true },
-      { id: id("s", 2), label: "14:00-23:00", color: "#E8C4C4", isPreset: true },
-      { id: id("s", 3), label: "17:00-23:00", color: "#EDD4B3", isPreset: true },
-      { id: id("s", 4), label: "18:00-23:00", color: "#D8D8D4", isPreset: true },
-      { id: id("s", 5), label: "10h-14h/18h-23h", color: "#C7D4EA", isPreset: true },
-      { id: id("s", 6), label: "11h-15h/18h-22h", color: "#EFE3B0", isPreset: true },
-      { id: id("s", 7), label: "10h-14h/17h-23h", color: "#D9C6E0", isPreset: true },
+      { id: id("s", 1), label: "10:00-14:00", color: "#70AD47", isPreset: true },
+      { id: id("s", 2), label: "14:00-23:00", color: "#C55A5A", isPreset: true },
+      { id: id("s", 3), label: "17:00-23:00", color: "#ED7D31", isPreset: true },
+      { id: id("s", 4), label: "18:00-23:00", color: "#ED7D31", isPreset: true },
+      { id: id("s", 5), label: "10h-14h/18h-23h", color: "#5B9BD5", isPreset: true },
+      { id: id("s", 6), label: "11h-15h/18h-22h", color: "#5B9BD5", isPreset: true },
+      { id: id("s", 7), label: "10h-14h/17h-23h", color: "#5B9BD5", isPreset: true },
     ],
     schedules: {},
   };

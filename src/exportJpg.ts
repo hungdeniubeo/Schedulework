@@ -12,7 +12,7 @@ export async function exportScheduleJpg(week: WeekRef): Promise<void> {
   const maxDimension = 12_000;
   const maxPixels = 64_000_000;
   const exportScale = Math.min(
-    3,
+    4,
     maxDimension / bounds.width,
     maxDimension / bounds.height,
     Math.sqrt(maxPixels / (bounds.width * bounds.height)),

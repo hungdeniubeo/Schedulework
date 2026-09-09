@@ -1,6 +1,7 @@
 import {
   DndContext,
   DragOverlay,
+  MeasuringStrategy,
   PointerSensor,
   pointerWithin,
   useDraggable,
@@ -8,16 +9,22 @@ import {
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
-  type DragStartEvent,
 } from "@dnd-kit/core";
-import { Fragment, useMemo, type ReactNode } from "react";
-import { InlineEdit } from "./InlineEdit";
+import { Fragment, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { EmployeeEditor, type EmployeeDetails } from "./EmployeeEditor";
+import { EmployeeDeleteDialog } from "./EmployeeDeleteDialog";
 import { Icon } from "./Icon";
 import { getEntryIssue, issueDescription, rangesForEntry } from "./overlap";
-import { formatShiftLabel, shiftStyle } from "./shiftStyle";
-import type { AppData, ScheduleEntry, ShiftType } from "./types";
+import { formatShiftLabel, semanticShiftColor, shiftStyle } from "./shiftStyle";
+import type { AppData, Employee, ScheduleEntry, ShiftType } from "./types";
 import { formatDayHeader, weekDays, weekKey, type WeekRef } from "./week";
+
+type ActiveDragData =
+  | { kind: "palette"; shiftTypeId: string; label: string }
+  | { kind: "entry"; entryId: string; entry: ScheduleEntry; label: string }
+  | { kind: "employee"; employeeId: string; employeeName: string; groupId: string; colorClass: string };
 
 const DAYS = [
   "Thứ hai",
@@ -28,7 +35,7 @@ const DAYS = [
   "Thứ bảy",
   "Chủ nhật",
 ];
-const AVATAR_COLORS = ["sage", "peach", "lavender", "blue"];
+const GROUP_DOT_COLORS = ["meat-dot", "soup-dot", "salad-dot"];
 
 function RemoveButton({
   onClick,
@@ -65,13 +72,13 @@ export function PaletteShift({
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette:${shift.id}`,
-    data: { kind: "palette", shiftTypeId: shift.id },
+    data: { kind: "palette", shiftTypeId: shift.id, label: shift.label },
   });
   return (
     <button
       ref={setNodeRef}
       type="button"
-      style={shiftStyle(shift.color)}
+      style={shiftStyle(semanticShiftColor(shift.label))}
       className={`palette-shift ${selected ? "selected" : ""} ${isDragging ? "is-dragging" : ""}`}
       {...listeners}
       {...attributes}
@@ -103,20 +110,20 @@ function EntryChip({
   types: ShiftType[];
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `entry:${entry.id}`,
-    data: { kind: "entry", entryId: entry.id, entry },
-  });
   const type = types.find((t) => t.id === entry.shiftTypeId);
   const label =
     entry.customLabel ||
     (entry.customStart && entry.customEnd
       ? `${entry.customStart}-${entry.customEnd}`
       : (type?.label ?? "Ca làm"));
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `entry:${entry.id}`,
+    data: { kind: "entry", entryId: entry.id, entry, label },
+  });
   return (
     <div
       className={`shift-line ${isDragging ? "is-dragging" : ""}`}
-      style={shiftStyle(type?.color ?? "#C5D9C7")}
+      style={shiftStyle(semanticShiftColor(label))}
     >
       <button
         type="button"
@@ -156,18 +163,19 @@ function Cell({
   onAssignShift: (employeeId: string, day: number) => void;
   onRemoveEntry: (id: string) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({
+  const { active, setNodeRef, isOver } = useDroppable({
     id: `cell:${employeeId}:${day}`,
-    data: { employeeId, dayOfWeek: day },
+    data: { kind: "cell", employeeId, dayOfWeek: day },
   });
-  const { active } = useDndContext();
-  const source = active?.data.current;
+  const source = active?.data.current as ActiveDragData | undefined;
   const movingEntry =
     source?.kind === "entry" ? (source.entry as ScheduleEntry) : undefined;
   const previewTypeId =
-    source?.kind === "palette"
+    isOver && source?.kind === "palette"
       ? (source.shiftTypeId as string)
-      : (movingEntry?.shiftTypeId ?? selectedShiftId);
+      : isOver && source?.kind === "entry"
+        ? movingEntry?.shiftTypeId
+        : selectedShiftId;
   const candidate: ScheduleEntry | null = previewTypeId
     ? {
         ...(movingEntry ?? {
@@ -219,6 +227,48 @@ function Cell({
   );
 }
 
+function EmployeeDropRow({
+  employee,
+  groupId,
+  children,
+}: {
+  employee: Employee;
+  groupId: string;
+  children: ReactNode;
+}) {
+  const { active, setNodeRef, isOver } = useDroppable({
+    id: `employee-target:${employee.id}`,
+    data: { kind: "employee", employeeId: employee.id, groupId },
+  });
+  const source = active?.data.current as ActiveDragData | undefined;
+  const isDragging = source?.kind === "employee" && source.employeeId === employee.id;
+  return (
+    <tr ref={setNodeRef} className={`employee-row ${source?.kind === "employee" ? "is-reorder-mode" : ""} ${isDragging ? "is-dragging-employee" : ""} ${isOver && !isDragging ? "is-drop-target" : ""}`}>
+      {children}
+    </tr>
+  );
+}
+
+function EmployeeDragHandle({ employee, groupId, colorClass }: { employee: Employee; groupId: string; colorClass: string }) {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `employee:${employee.id}`,
+    data: { kind: "employee", employeeId: employee.id, employeeName: employee.name, groupId, colorClass },
+  });
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      className="employee-drag-handle no-export"
+      title="Kéo để sắp xếp nhân viên"
+      aria-label={`Kéo ${employee.name} để sắp xếp`}
+      {...listeners}
+      {...attributes}
+    >
+      <Icon name="grip" size={13} />
+    </button>
+  );
+}
+
 type Props = {
   data: AppData;
   week: WeekRef;
@@ -227,12 +277,9 @@ type Props = {
   search: string;
   selectedShiftId: string | null;
   onAssignShift: (employeeId: string, day: number) => void;
-  addingEmployeeGroupId: string | null;
-  onRenameEmployee: (id: string, name: string) => void;
+  onEditEmployee: (id: string, details: EmployeeDetails) => void;
   onDeleteEmployee: (id: string) => void;
-  onStartAddEmployee: (groupId: string) => void;
-  onCommitAddEmployee: (groupId: string, name: string) => void;
-  onCancelAddEmployee: () => void;
+  onCommitAddEmployee: (groupId: string, details: EmployeeDetails) => void;
   onRemoveEntry: (id: string) => void;
   onSetCountOverride: (
     day: number,
@@ -290,37 +337,6 @@ function compareEntriesByTime(
   return firstEnd - secondEnd || first.sortOrderInCell - second.sortOrderInCell;
 }
 
-function AddNameInput({
-  placeholder,
-  onCommit,
-  onCancel,
-}: {
-  placeholder: string;
-  onCommit: (value: string) => void;
-  onCancel: () => void;
-}) {
-  return (
-    <input
-      autoFocus
-      className="ui-input add-name-input"
-      aria-label={placeholder}
-      placeholder={placeholder}
-      onBlur={(e) => {
-        const value = e.target.value.trim();
-        if (value) onCommit(value);
-        else onCancel();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") e.currentTarget.blur();
-        if (e.key === "Escape") {
-          e.currentTarget.value = "";
-          e.currentTarget.blur();
-        }
-      }}
-    />
-  );
-}
-
 export function ScheduleTable(props: Props) {
   const {
     data,
@@ -330,16 +346,18 @@ export function ScheduleTable(props: Props) {
     search,
     selectedShiftId,
     onAssignShift,
-    addingEmployeeGroupId,
-    onRenameEmployee,
+    onEditEmployee,
     onDeleteEmployee,
-    onStartAddEmployee,
     onCommitAddEmployee,
-    onCancelAddEmployee,
     onRemoveEntry,
     onSetCountOverride,
   } = props;
   const days = useMemo(() => weekDays(week), [week]);
+  const [employeeEditor, setEmployeeEditor] = useState<{
+    groupId: string;
+    employee?: Employee;
+  } | null>(null);
+  const [deleteEmployee, setDeleteEmployee] = useState<Employee | null>(null);
   const entries = data.schedules[weekKey(week)]?.entries ?? [];
   const today = new Date().toDateString();
   const normalizedSearch = (exporting ? "" : search)
@@ -374,19 +392,23 @@ export function ScheduleTable(props: Props) {
       automaticCounts[entry.dayOfWeek - 1][period] += 1;
   }
   const countOverrides = data.schedules[weekKey(week)]?.countOverrides ?? {};
-  const dailyStaffCounts = Array.from({ length: 7 }, (_, dayIndex) =>
-    new Set(
-      entries
-        .filter((entry) => entry.dayOfWeek === dayIndex + 1)
-        .map((entry) => entry.employeeId),
-    ).size,
+  const employeeColumnWidth = Math.max(
+    195,
+    ...data.employees.map(
+      (employee) =>
+        employee.name.length * 6.6 +
+        75 +
+        (employee.isHeadChef ? 18 : employee.isNew ? 24 : 0),
+    ),
   );
+  const sheetStyle = { "--employee-column-width": `${employeeColumnWidth}px` } as CSSProperties;
 
   return (
     <div className="sheet-scroll">
       <div
         className={`schedule-sheet ${exporting ? "exporting" : ""}`}
         id="schedule-sheet"
+        style={sheetStyle}
       >
         <div className="sheet-heading">
           <div>
@@ -453,7 +475,7 @@ export function ScheduleTable(props: Props) {
                         <button
                           type="button"
                           className="group-add"
-                          onClick={() => onStartAddEmployee(group.id)}
+                          onClick={() => setEmployeeEditor({ groupId: group.id })}
                           aria-label={`Thêm nhân viên vào ${group.name}`}
                         >
                           <Icon name="plus" size={13} />
@@ -463,27 +485,50 @@ export function ScheduleTable(props: Props) {
                     </div>
                   </td>
                 </tr>
-                {group.employees.map((employee, employeeIndex) => (
-                  <tr key={employee.id} className="employee-row">
-                    <th scope="row" className="name-cell">
+                {group.employees.map((employee) => (
+                  <EmployeeDropRow
+                    key={employee.id}
+                    employee={employee}
+                    groupId={group.id}
+                  >
+                    <th
+                      scope="row"
+                      className={`name-cell ${employee.isNew ? "is-new-employee" : ""}`}
+                    >
                       <div className="employee-identity">
-                        <span
-                          className={`avatar ${AVATAR_COLORS[(group.sortOrder + employeeIndex) % AVATAR_COLORS.length]}`}
-                        >
-                          {employee.shortName
-                            .slice(0, 1)
-                            .toLocaleUpperCase("vi")}
+                        <EmployeeDragHandle employee={employee} groupId={group.id} colorClass={GROUP_DOT_COLORS[group.sortOrder % GROUP_DOT_COLORS.length]} />
+                        <span className="employee-avatar-wrap">
+                          <span
+                            className={`avatar ${GROUP_DOT_COLORS[group.sortOrder % GROUP_DOT_COLORS.length]}`}
+                          />
                         </span>
-                        <InlineEdit
-                          value={employee.name}
-                          onCommit={(name) =>
-                            onRenameEmployee(employee.id, name)
-                          }
-                        />
-                        <RemoveButton
-                          onClick={() => onDeleteEmployee(employee.id)}
-                          label={`Xóa nhân viên ${employee.name}`}
-                        />
+                        <button
+                          type="button"
+                          className="employee-name-button"
+                          onClick={() => setEmployeeEditor({ groupId: group.id, employee })}
+                          title="Chỉnh sửa nhân viên"
+                        >
+                          <span className="employee-name-wrap">
+                            {employee.name}
+                          {employee.isHeadChef && (
+                            <span className="head-chef-badge" title="Bếp trưởng" aria-label="Bếp trưởng">
+                              <Icon name="chefHat" size={13} />
+                            </span>
+                          )}
+                          {employee.isNew && (
+                            <span className="new-employee-badge">NEW</span>
+                          )}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="employee-remove no-export"
+                          onClick={() => setDeleteEmployee(employee)}
+                          title={`Xóa ${employee.name}`}
+                          aria-label={`Xóa nhân viên ${employee.name}`}
+                        >
+                          <Icon name="close" size={11} />
+                        </button>
                       </div>
                     </th>
                     {days.map((date, i) => (
@@ -508,27 +553,15 @@ export function ScheduleTable(props: Props) {
                         onRemoveEntry={onRemoveEntry}
                       />
                     ))}
-                  </tr>
+                  </EmployeeDropRow>
                 ))}
-                {addingEmployeeGroupId === group.id && (
-                  <tr className="no-export">
-                    <td colSpan={8} className="add-name-cell">
-                      <AddNameInput
-                        placeholder="Tên nhân viên mới"
-                        onCommit={(name) => onCommitAddEmployee(group.id, name)}
-                        onCancel={onCancelAddEmployee}
-                      />
-                    </td>
-                  </tr>
-                )}
-                {!group.employees.length &&
-                  addingEmployeeGroupId !== group.id && (
+                {!group.employees.length && (
                     <tr className="no-export">
                       <td colSpan={8} className="empty-group">
                         Chưa có nhân viên.{" "}
                         <button
                           type="button"
-                          onClick={() => onStartAddEmployee(group.id)}
+                          onClick={() => setEmployeeEditor({ groupId: group.id })}
                         >
                           Thêm người đầu tiên <Icon name="arrow" size={14} />
                         </button>
@@ -557,102 +590,128 @@ export function ScheduleTable(props: Props) {
                 </td>
               </tr>
             )}
-            {(["S", "T", "Đ"] as const).map((period) => (
-              <tr className="shift-summary-row" key={period}>
-                <th scope="row">
-                  <span>{{ S: "Sáng", T: "Trưa", Đ: "Tối" }[period]}</span>
-                </th>
-                {days.map((_, dayIndex) => {
-                  const overrideKey = `${dayIndex + 1}:${period}`;
-                  const value =
-                    countOverrides[overrideKey] ??
-                    automaticCounts[dayIndex][period];
-                  return (
-                    <td
-                      key={overrideKey}
-                      className={value === 0 ? "zero-count" : undefined}
-                    >
-                      <input
-                        key={`${overrideKey}:${value}`}
-                        type="number"
-                        min="0"
-                        defaultValue={value}
-                        aria-label={`Tổng ca ${period} ngày ${dayIndex + 1}`}
-                        title="Nhập số khác để chỉnh tay; xóa trắng để dùng số tự động"
-                        onBlur={(event) => {
-                          const raw = event.currentTarget.value.trim();
-                          onSetCountOverride(
-                            dayIndex + 1,
-                            period,
-                            raw === "" ? null : Math.max(0, Number(raw) || 0),
-                          );
-                        }}
-                      />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-            <tr className="staff-density-row">
-              <th scope="row">Tỷ lệ bố trí</th>
-              {days.map((_, dayIndex) => {
-                const count = dailyStaffCounts[dayIndex];
-                const percent = data.employees.length
-                  ? Math.round((count / data.employees.length) * 100)
-                  : 0;
-                const level = percent < 40 ? "low" : percent < 70 ? "medium" : "high";
-                return (
-                  <td
-                    key={dayIndex}
-                    title={`${count}/${data.employees.length} nhân viên đã có ca`}
-                  >
-                    <div
-                      className={`density-track density-${level}`}
-                      role="img"
-                      aria-label={`${count} trên ${data.employees.length} nhân viên, ${percent}%`}
-                    >
-                      <span style={{ width: `${percent}%` }} />
-                    </div>
-                    <small>
-                      {count}/{data.employees.length}
-                    </small>
-                  </td>
-                );
-              })}
-            </tr>
           </tbody>
         </table>
+        <section className="daily-summary" aria-label="Tổng ca theo ngày">
+          <header className="daily-summary-heading">
+            <span className="daily-summary-heading-icon"><Icon name="grid" size={14} /></span>
+            <span><strong>Tổng ca</strong><small>Theo buổi trong ngày</small></span>
+          </header>
+          {days.map((date, dayIndex) => {
+            const values = (["S", "T", "Đ"] as const).map((period) => ({
+              period,
+              value: countOverrides[`${dayIndex + 1}:${period}`] ?? automaticCounts[dayIndex][period],
+            }));
+            return (
+              <article className={`daily-summary-card ${values.some(({ value }) => value > 0) ? "has-shifts" : ""}`} key={date.toISOString()}>
+                <span className="daily-summary-date"><span>{DAYS[dayIndex]}</span><b>{formatDayHeader(date)}</b></span>
+                {values.map(({ period, value }) => (
+                  <label className={`daily-summary-line ${value === 0 ? "is-empty" : ""}`} key={period}>
+                    <span><Icon name={period === "S" ? "sun" : period === "T" ? "sunHigh" : "moon"} size={14} />{{ S: "Sáng", T: "Trưa", Đ: "Tối" }[period]}</span>
+                    <input key={`${period}:${value}`} type="number" min="0" defaultValue={value} aria-label={`Tổng ca ${period} ngày ${dayIndex + 1}`} title="Nhập số để chỉnh tay; xóa trắng để dùng số tự động" onBlur={(event) => {
+                      const raw = event.currentTarget.value.trim();
+                      onSetCountOverride(dayIndex + 1, period, raw === "" ? null : Math.max(0, Number(raw) || 0));
+                    }} />
+                  </label>
+                ))}
+              </article>
+            );
+          })}
+        </section>
       </div>
+      {employeeEditor && <EmployeeEditor
+        employee={employeeEditor.employee}
+        currentChef={data.employees.find((employee) => employee.isHeadChef)}
+        onClose={() => setEmployeeEditor(null)}
+        onSave={(details) => {
+          if (employeeEditor.employee) onEditEmployee(employeeEditor.employee.id, details);
+          else onCommitAddEmployee(employeeEditor.groupId, details);
+          setEmployeeEditor(null);
+        }}
+        onDelete={employeeEditor.employee ? () => setDeleteEmployee(employeeEditor.employee!) : undefined}
+      />}
+      {deleteEmployee && (() => {
+        const affectedWeeks = Object.values(data.schedules).filter((schedule) =>
+          schedule.entries.some((entry) => entry.employeeId === deleteEmployee.id),
+        );
+        const shiftCount = affectedWeeks.reduce(
+          (total, schedule) => total + schedule.entries.filter((entry) => entry.employeeId === deleteEmployee.id).length,
+          0,
+        );
+        const group = data.groups.find((item) => item.id === deleteEmployee.groupId);
+        const areaName = (FIXED_GROUPS[group?.sortOrder ?? -1]?.name ?? group?.name ?? "Chưa có khu vực").toLocaleUpperCase("vi");
+        return <EmployeeDeleteDialog
+          employee={deleteEmployee}
+          areaName={areaName}
+          colorClass={GROUP_DOT_COLORS[group?.sortOrder ?? 0] ?? "meat-dot"}
+          shiftCount={shiftCount}
+          weekCount={affectedWeeks.length}
+          onClose={() => setDeleteEmployee(null)}
+          onConfirm={() => {
+            onDeleteEmployee(deleteEmployee.id);
+            setDeleteEmployee(null);
+            setEmployeeEditor(null);
+          }}
+        />;
+      })()}
     </div>
   );
 }
 
+function ActiveDragOverlay() {
+  const { active } = useDndContext();
+  const source = active?.data.current as ActiveDragData | undefined;
+  if (!source) return null;
+  if (source.kind === "employee")
+    return (
+      <div className="employee-drag-overlay">
+        <span className={`employee-drag-dot ${source.colorClass}`} />
+        <strong>{source.employeeName}</strong>
+        <Icon name="grip" size={13} />
+      </div>
+    );
+  return (
+    <div className="drag-overlay" style={shiftStyle(semanticShiftColor(source.label))}>
+      <span className="shift-color-dot" />
+      <span className="drag-overlay-label">
+        {source.label.split("/").map((part, index) => (
+          <span key={index}>{formatShiftLabel(part)}</span>
+        ))}
+      </span>
+      <Icon name="grip" size={13} />
+    </div>
+  );
+}
+
+const scheduleCollisionDetection: CollisionDetection = (args) => {
+  const employeeDrag = args.active.data.current?.kind === "employee";
+  const prefix = employeeDrag ? "employee-target:" : "cell:";
+  return pointerWithin(args).filter((collision) => String(collision.id).startsWith(prefix));
+};
+
 export function SheetDnd({
   children,
-  onDragStart,
   onDragEnd,
-  onDragCancel,
-  overlay,
 }: {
   children: ReactNode;
-  onDragStart: (e: DragStartEvent) => void;
   onDragEnd: (e: DragEndEvent) => void;
-  onDragCancel: () => void;
-  overlay: ReactNode;
 }) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   );
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={onDragStart}
+      collisionDetection={scheduleCollisionDetection}
+      measuring={{ droppable: { strategy: MeasuringStrategy.BeforeDragging } }}
       onDragEnd={onDragEnd}
-      onDragCancel={onDragCancel}
     >
       {children}
-      <DragOverlay dropAnimation={null}>{overlay}</DragOverlay>
+      <DragOverlay
+        dropAnimation={null}
+      >
+        <ActiveDragOverlay />
+      </DragOverlay>
     </DndContext>
   );
 }

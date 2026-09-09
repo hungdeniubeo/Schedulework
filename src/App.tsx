@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import { makeShortName } from "./defaultData";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { makeShortName, normalizeEmployeeName } from "./defaultData";
 import { exportScheduleJpg } from "./exportJpg";
 import { ScheduleTable, SheetDnd } from "./ScheduleTable";
 import { ShiftSidebar } from "./ShiftSidebar";
 import { Icon } from "./Icon";
-import { formatShiftLabel } from "./shiftStyle";
+import { formatShiftLabel, semanticShiftColor } from "./shiftStyle";
+import type { EmployeeDetails } from "./EmployeeEditor";
 import { ensureWeekSchedule, getData, saveData } from "./storage";
 import {
   entryLabel,
@@ -75,10 +76,6 @@ export default function App() {
   const [week, setWeek] = useState<WeekRef>(currentWeekRef());
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [addingEmployeeGroupId, setAddingEmployeeGroupId] = useState<
-    string | null
-  >(null);
-  const [dragLabel, setDragLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | "error">(
@@ -162,38 +159,12 @@ export default function App() {
     void persist(draft);
   }
 
-  const overlay = useMemo(() => {
-    if (!dragLabel) return null;
-    return (
-      <div className="drag-overlay">
-        <Icon name="clock" size={15} />
-        {formatShiftLabel(dragLabel)}
-      </div>
-    );
-  }, [dragLabel]);
-
-  function onDragStart(e: DragStartEvent) {
-    const kind = e.active.data.current?.kind;
-    if (kind === "palette") {
-      const id = e.active.data.current?.shiftTypeId as string;
-      setDragLabel(data?.shiftTypes.find((s) => s.id === id)?.label ?? "");
-    } else if (kind === "entry") {
-      const id = e.active.data.current?.entryId as string;
-      const entry = entries.find((x) => x.id === id);
-      const label =
-        entry?.customLabel ||
-        (entry?.customStart && entry.customEnd
-          ? `${entry.customStart}-${entry.customEnd}`
-          : data?.shiftTypes.find((s) => s.id === entry?.shiftTypeId)?.label);
-      setDragLabel(label ?? "");
-    }
-  }
-
   function describeIssue(
     entry: ScheduleEntry,
     issue: EntryIssue,
     ref: WeekRef,
     current: AppData,
+    includeEmployee = true,
   ): string {
     const name =
       current.employees.find((employee) => employee.id === entry.employeeId)
@@ -204,7 +175,10 @@ export default function App() {
       issue.kind === "overlap"
         ? ` với ca ${formatShiftLabel(entryLabel(issue.other, current.shiftTypes))}`
         : "";
-    return `${name} · ${when}: ${issueDescription(issue)}${other}`;
+    const detail = issueDescription(issue)
+      .replace(/[.!?]+$/, "")
+      .replace(/^./u, (letter) => letter.toLocaleLowerCase("vi"));
+    return `${includeEmployee ? `${name} · ` : ""}${when}: ${detail}${other}`;
   }
 
   function placeEntry(candidate: ScheduleEntry) {
@@ -222,7 +196,7 @@ export default function App() {
     const issue = getEntryIssue(candidate, scheduleEntries, current.shiftTypes);
     if (issue) {
       setNotice(
-        `Không thể xếp ca. ${describeIssue(candidate, issue, week, current)}. Hãy chọn giờ khác hoặc sửa ca cũ.`,
+        `Không thể xếp ca. ${describeIssue(candidate, issue, week, current, false)}.${issue.kind === "overlap" ? " Hãy chọn giờ khác hoặc sửa ca cũ." : ""}`,
       );
       return;
     }
@@ -288,9 +262,27 @@ export default function App() {
   }
 
   function onDragEnd(event: DragEndEvent) {
-    setDragLabel(null);
     const target = event.over?.data.current;
     const source = event.active.data.current;
+    if (source?.kind === "employee") {
+      if (
+        target?.kind !== "employee" ||
+        target.groupId !== source.groupId ||
+        target.employeeId === source.employeeId
+      ) return;
+      patch((draft) => {
+        const groupEmployees = draft.employees
+          .filter((employee) => employee.groupId === source.groupId)
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+        const from = groupEmployees.findIndex((employee) => employee.id === source.employeeId);
+        const to = groupEmployees.findIndex((employee) => employee.id === target.employeeId);
+        if (from < 0 || to < 0) return;
+        const [moved] = groupEmployees.splice(from, 1);
+        groupEmployees.splice(to, 0, moved);
+        groupEmployees.forEach((employee, index) => { employee.sortOrder = index; });
+      });
+      return;
+    }
     if (!target?.employeeId || !target?.dayOfWeek || !source) return;
     if (source.kind === "palette") {
       placeEntry({
@@ -325,7 +317,7 @@ export default function App() {
     if (weekIssues.length && data) {
       const first = weekIssues[0];
       setNotice(
-        `Chưa thể xuất lịch. ${describeIssue(first.entry, first.issue, week, data)}. Sửa các ô được đánh dấu rồi xuất lại.`,
+        `Chưa thể xuất lịch. ${describeIssue(first.entry, first.issue, week, data)}. Sửa ca trên rồi xuất lại.`,
       );
       setGroupFilter("all");
       setSearch("");
@@ -340,7 +332,7 @@ export default function App() {
       await exportScheduleJpg(week);
     } catch (e) {
       console.error(e);
-      setNotice("Chưa xuất được ảnh. Vui lòng thử lại.");
+      setNotice("Chưa xuất được lịch. Vui lòng thử lại.");
     } finally {
       setExporting(false);
     }
@@ -364,11 +356,11 @@ export default function App() {
   ): string | null {
     const current = dataRef.current;
     if (!current) return "Chưa đọc được dữ liệu.";
-    const nextShift = { ...shift, id: shift.id ?? newId() };
+    const nextShift = { ...shift, color: semanticShiftColor(shift.label), id: shift.id ?? newId() };
     const nextTypes = shift.id
       ? current.shiftTypes.map((type) =>
           type.id === shift.id
-            ? { ...type, label: shift.label, color: shift.color }
+            ? { ...type, label: shift.label, color: semanticShiftColor(shift.label) }
             : type,
         )
       : [...current.shiftTypes, nextShift];
@@ -395,7 +387,7 @@ export default function App() {
         )) {
           const issue = getEntryIssue(entry, schedule.entries, nextTypes);
           if (issue)
-            return `Không thể đổi giờ: ${describeIssue(entry, issue, ref ?? week, { ...current, shiftTypes: nextTypes })} (lịch ${ref?.year ?? week.year}). Sửa lịch liên quan trước.`;
+            return `Không thể đổi giờ: ${describeIssue(entry, issue, ref ?? week, { ...current, shiftTypes: nextTypes })} (tuần ${ref?.week ?? week.week}, ${ref?.year ?? week.year}). Sửa ca liên quan trước.`;
         }
       }
     }
@@ -421,7 +413,6 @@ export default function App() {
       setData(next);
       setSaveStatus("saved");
       setSelectedShiftId(null);
-      setDragLabel(null);
       setGroupFilter("all");
       setSearch("");
       setNotice(null);
@@ -554,12 +545,7 @@ export default function App() {
             </button>
           </div>
         )}
-        <SheetDnd
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          onDragCancel={() => setDragLabel(null)}
-          overlay={overlay}
-        >
+        <SheetDnd onDragEnd={onDragEnd}>
           <div
             className={`schedule-layout ${!sidebarOpen ? "sidebar-hidden" : ""}`}
           >
@@ -596,6 +582,7 @@ export default function App() {
                         void changeWeek({
                           ...week,
                           month: Number(e.target.value),
+                          week: 1,
                         })
                       }
                     >
@@ -638,52 +625,50 @@ export default function App() {
                     Hôm nay
                   </button>
                 </div>
-                <div className="view-controls">
-                  <label className="select-wrap week-select">
-                    <Icon name="calendar" size={15} />
-                    <select
-                      aria-label="Tuần"
-                      value={week.week}
-                      onChange={(e) =>
-                        void changeWeek({
-                          ...week,
-                          week: Number(e.target.value),
-                        })
-                      }
-                    >
-                      {[1, 2, 3, 4, 5].map((w) => (
-                        <option key={w} value={w}>
-                          Tuần {w}
-                        </option>
-                      ))}
-                    </select>
-                    <Icon name="chevronDown" size={13} />
+                <div className="toolbar-right">
+                  <label className="employee-search">
+                    <Icon name="search" size={15} />
+                    <input
+                      type="search"
+                      placeholder="Tìm nhân viên…"
+                      aria-label="Tìm nhân viên"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
                   </label>
-                  <button
-                    type="button"
-                    className={`icon-button sidebar-toggle ${sidebarOpen ? "active" : ""}`}
-                    onClick={() => setSidebarOpen((open) => !open)}
-                    aria-label={
-                      sidebarOpen ? "Ẩn danh sách ca" : "Hiện danh sách ca"
-                    }
-                    aria-expanded={sidebarOpen}
-                    title="Danh sách ca làm"
-                  >
-                    <Icon name="panel" size={18} />
-                  </button>
+                  <div className="view-controls">
+                    <label className="select-wrap week-select">
+                      <Icon name="calendar" size={14} />
+                      <select
+                        aria-label="Tuần"
+                        value={week.week}
+                        onChange={(e) =>
+                          void changeWeek({
+                            ...week,
+                            week: Number(e.target.value),
+                          })
+                        }
+                      >
+                        {[1, 2, 3, 4, 5].map((w) => (
+                          <option key={w} value={w}>
+                            Tuần {w}
+                          </option>
+                        ))}
+                      </select>
+                      <Icon name="chevronDown" size={13} />
+                    </label>
+                    <button
+                      type="button"
+                      className={`icon-button sidebar-toggle ${sidebarOpen ? "active" : ""}`}
+                      onClick={() => setSidebarOpen((open) => !open)}
+                      aria-label={sidebarOpen ? "Ẩn danh sách ca" : "Hiện danh sách ca"}
+                      aria-expanded={sidebarOpen}
+                      title="Danh sách ca làm"
+                    >
+                      <Icon name="panel" size={17} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="filter-toolbar">
-                <label className="employee-search">
-                  <Icon name="search" size={16} />
-                  <input
-                    type="search"
-                    placeholder="Tìm nhân viên…"
-                    aria-label="Tìm nhân viên"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </label>
               </div>
               {selectedShift && (
                 <div className="selection-hint" role="status">
@@ -709,13 +694,18 @@ export default function App() {
                 search={search}
                 selectedShiftId={selectedShiftId}
                 onAssignShift={assignShift}
-                addingEmployeeGroupId={addingEmployeeGroupId}
-                onRenameEmployee={(id, name) =>
+                onEditEmployee={(id, details: EmployeeDetails) =>
                   patch((d) => {
                     const e = d.employees.find((x) => x.id === id);
                     if (e) {
-                      e.name = name;
-                      e.shortName = makeShortName(name);
+                      const normalizedName = normalizeEmployeeName(details.name);
+                      e.name = normalizedName;
+                      e.shortName = makeShortName(normalizedName);
+                      e.isNew = details.isNew;
+                      if (details.isHeadChef)
+                        for (const employee of d.employees)
+                          employee.isHeadChef = employee.id === id;
+                      else e.isHeadChef = false;
                     }
                   })
                 }
@@ -727,25 +717,26 @@ export default function App() {
                     }
                   })
                 }
-                onStartAddEmployee={(groupId) =>
-                  setAddingEmployeeGroupId(groupId)
-                }
-                onCommitAddEmployee={(groupId, name) => {
+                onCommitAddEmployee={(groupId, details: EmployeeDetails) => {
                   patch((d) => {
+                    const normalizedName = normalizeEmployeeName(details.name);
                     const order = d.employees.filter(
                       (e) => e.groupId === groupId,
                     ).length;
+                    if (details.isHeadChef)
+                      for (const employee of d.employees)
+                        employee.isHeadChef = false;
                     d.employees.push({
                       id: newId(),
-                      name,
-                      shortName: makeShortName(name),
+                      name: normalizedName,
+                      shortName: makeShortName(normalizedName),
                       groupId,
                       sortOrder: order,
+                      isHeadChef: details.isHeadChef,
+                      isNew: details.isNew,
                     });
                   });
-                  setAddingEmployeeGroupId(null);
                 }}
-                onCancelAddEmployee={() => setAddingEmployeeGroupId(null)}
                 onSetCountOverride={(day, period, value) =>
                   patch((draft) => {
                     const schedule = draft.schedules[key] ?? { entries: [] };
@@ -773,6 +764,9 @@ export default function App() {
                 setSelectedShiftId((current) => (current === id ? null : id))
               }
               onSave={saveShift}
+              weeklyShiftCount={entries.length}
+              scheduledEmployeeCount={new Set(entries.map((entry) => entry.employeeId)).size}
+              totalEmployees={data.employees.length}
               onDelete={(id) => {
                 if (selectedShiftId === id) setSelectedShiftId(null);
                 patch((d) => {
