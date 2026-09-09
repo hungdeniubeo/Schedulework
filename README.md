@@ -33,7 +33,7 @@ No account. No login. No lost data from a dropped connection — because **there
 | ⚠️ **Automatic conflict detection** | Overlapping shift? Red border + warning, instantly |
 | 🕒 **Split shifts** | 09:00–12:00, break, back for 17:00–21:00 — no problem |
 | 📊 **S / T / Đ stats** | Auto-counts Morning / Afternoon / Evening shifts per day, editable by hand |
-| 🖼️ **Crisp exports** | High-resolution PNG (up to 3× scale), sharp like a real spreadsheet |
+| 🖼️ **Crisp exports** | High-resolution JPG (up to 3× scale), sharp like a real spreadsheet |
 | 💾 **100% offline** | Your data stays on your machine, full stop |
 
 ---
@@ -174,7 +174,8 @@ Press `Esc` or click **Deselect** to exit assignment mode.
 
 - 🔍 Search employees by name
 - 🧩 Filter the schedule by group
-- ✏️ Edit employee names / group names
+- ✏️ Click a group or employee name directly to rename it
+- 🗑️ Hover to reveal a **×** button and delete a group or employee
 
 Default work areas: **Meat · Soup · Salad** — each with its own icon and centered heading, so long schedules stay easy to scan.
 
@@ -182,10 +183,12 @@ Default work areas: **Meat · Soup · Salad** — each with its own icon and cen
 
 ## 🎨 Editing shift types
 
-Click the ✏️ icon next to a shift type to change:
+Click a shift type to edit it in place:
 - Shift name
 - Start / end time
 - Display color
+
+Hover over a shift type to reveal a **×** button and delete it.
 
 > ⚠️ Changing a shift's hours re-checks **every schedule currently using that shift type**. If it creates a conflict, the change **won't be saved**.
 
@@ -236,7 +239,7 @@ A shift spanning multiple periods is counted toward whichever period holds the *
 
 ## 🖼️ Exporting the schedule
 
-Click **Export Schedule** to save the full week as a high-resolution PNG, including:
+Click **Export Schedule** to save the full week as a high-resolution JPG, including:
 
 📌 Schedule title · 📅 Week date range · 👥 Employee list · 🎨 Assigned shifts · 📊 Staffing stats
 
