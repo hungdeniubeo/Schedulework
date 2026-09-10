@@ -510,10 +510,10 @@ export default function App() {
               setResetOpen(true);
             }}
             title="Xóa các ca trong tuần đang hiển thị để xếp lại từ đầu"
-            aria-label="Xóa lịch tuần này"
+            aria-label="Xóa lịch"
           >
             <Icon name="trash" size={15} />
-            <span className="action-label">Xóa lịch tuần này</span>
+            <span className="action-label">Xóa lịch</span>
           </button>
           <button
             type="button"
@@ -702,6 +702,10 @@ export default function App() {
                       e.name = normalizedName;
                       e.shortName = makeShortName(normalizedName);
                       e.isNew = details.isNew;
+                      e.isExecutiveChef = details.isExecutiveChef;
+                      e.isManager = details.isManager;
+                      e.isFullTime = details.isFullTime;
+                      e.customRoleId = details.customRoleId;
                       if (details.isHeadChef)
                         for (const employee of d.employees)
                           employee.isHeadChef = employee.id === id;
@@ -733,9 +737,26 @@ export default function App() {
                       groupId,
                       sortOrder: order,
                       isHeadChef: details.isHeadChef,
+                      isExecutiveChef: details.isExecutiveChef,
+                      isManager: details.isManager,
+                      isFullTime: details.isFullTime,
+                      customRoleId: details.customRoleId,
                       isNew: details.isNew,
                     });
                   });
+                }}
+                onAddCustomRole={(name) => {
+                  const normalizedName = name.trim().replace(/\s+/g, " ");
+                  const existing = (dataRef.current?.customRoles ?? []).find(
+                    (item) => item.name.toLocaleLowerCase("vi") === normalizedName.toLocaleLowerCase("vi"),
+                  );
+                  if (existing) return existing.id;
+                  const id = newId();
+                  patch((d) => {
+                    d.customRoles ??= [];
+                    d.customRoles.push({ id, name: normalizedName });
+                  });
+                  return id;
                 }}
                 onSetCountOverride={(day, period, value) =>
                   patch((draft) => {
@@ -793,7 +814,7 @@ export default function App() {
           <span className="reset-dialog-icon">
             <Icon name="trash" size={22} />
           </span>
-          <h2 id="reset-title">Xóa lịch tuần này?</h2>
+          <h2 id="reset-title">Xóa lịch?</h2>
           <p id="reset-description">
             Xóa <strong>{scheduledShiftCount} ca của tuần {week.week}</strong> để
             xếp lại từ đầu. Lịch của các tuần khác, nhóm, nhân viên và loại ca
@@ -822,7 +843,7 @@ export default function App() {
               onClick={() => void clearCurrentWeekSchedule()}
             >
               <Icon name="trash" size={14} />
-              {resetting ? "Đang xóa…" : "Xóa lịch tuần này"}
+              {resetting ? "Đang xóa…" : "Xóa lịch"}
             </button>
           </div>
         </dialog>

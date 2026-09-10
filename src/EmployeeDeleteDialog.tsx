@@ -5,6 +5,7 @@ import type { Employee } from "./types";
 export function EmployeeDeleteDialog({
   employee,
   areaName,
+  customRoleName,
   colorClass,
   shiftCount,
   weekCount,
@@ -13,6 +14,7 @@ export function EmployeeDeleteDialog({
 }: {
   employee: Employee;
   areaName: string;
+  customRoleName?: string;
   colorClass: string;
   shiftCount: number;
   weekCount: number;
@@ -46,7 +48,21 @@ export function EmployeeDeleteDialog({
 
       <div className="employee-delete-person">
         <span className={`employee-delete-person-dot ${colorClass}`} />
-        <span><strong>{employee.name}</strong><small>{employee.isHeadChef ? "Bếp trưởng" : "Nhân viên"} · {areaName}</small></span>
+        <span>
+          <strong>{employee.name}</strong>
+          <small>
+            {employee.isExecutiveChef
+              ? "Tổng bếp trưởng"
+              : employee.isHeadChef
+                ? "Bếp trưởng"
+              : employee.isManager
+                ? "Quản lý"
+                : employee.isFullTime
+                  ? "Full-time"
+                  : customRoleName ?? "Part-time"}
+            {areaName && <> · {areaName}</>}
+          </small>
+        </span>
       </div>
 
       <p id="employee-delete-description" className="employee-delete-description">

@@ -11,7 +11,16 @@ export type Employee = {
   groupId: string;
   sortOrder: number;
   isHeadChef?: boolean;
+  isExecutiveChef?: boolean;
+  isManager?: boolean;
+  isFullTime?: boolean;
+  customRoleId?: string;
   isNew?: boolean;
+};
+
+export type CustomRole = {
+  id: string;
+  name: string;
 };
 
 export type ShiftType = {
@@ -35,11 +44,13 @@ export type ScheduleEntry = {
 export type WeekSchedule = {
   entries: ScheduleEntry[];
   countOverrides?: Record<string, number>;
+  staffingTargets?: Record<string, number>;
 };
 
 export type AppData = {
   groups: Group[];
   employees: Employee[];
+  customRoles: CustomRole[];
   shiftTypes: ShiftType[];
   schedules: Record<string, WeekSchedule>;
 };

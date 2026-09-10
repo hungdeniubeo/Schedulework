@@ -13,11 +13,19 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { Fragment, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { PRIORITY_GROUP_ID } from "./defaultData";
 import { EmployeeEditor, type EmployeeDetails } from "./EmployeeEditor";
 import { EmployeeDeleteDialog } from "./EmployeeDeleteDialog";
 import { Icon } from "./Icon";
 import { getEntryIssue, issueDescription, rangesForEntry } from "./overlap";
-import { formatShiftLabel, semanticShiftColor, shiftStyle } from "./shiftStyle";
+import { staffingStatusForShiftCount } from "./staffing";
+import {
+  formatShiftLabel,
+  isLongShift,
+  LONG_SHIFT_TOOLTIP,
+  semanticShiftColor,
+  shiftStyle,
+} from "./shiftStyle";
 import type { AppData, Employee, ScheduleEntry, ShiftType } from "./types";
 import { formatDayHeader, weekDays, weekKey, type WeekRef } from "./week";
 
@@ -36,6 +44,12 @@ const DAYS = [
   "Chủ nhật",
 ];
 const GROUP_DOT_COLORS = ["meat-dot", "soup-dot", "salad-dot"];
+const EMPLOYEE_COLUMN_CHROME_WIDTH = 143;
+
+function groupDotColor(groupId: string, sortOrder: number): string {
+  if (groupId === PRIORITY_GROUP_ID) return "priority-dot";
+  return GROUP_DOT_COLORS[Math.abs(sortOrder) % GROUP_DOT_COLORS.length];
+}
 
 function RemoveButton({
   onClick,
@@ -70,6 +84,7 @@ export function PaletteShift({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const tooltip = isLongShift(shift.label) ? LONG_SHIFT_TOOLTIP : undefined;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette:${shift.id}`,
     data: { kind: "palette", shiftTypeId: shift.id, label: shift.label },
@@ -84,6 +99,7 @@ export function PaletteShift({
       {...attributes}
       aria-pressed={selected}
       aria-label={`Chọn ca ${shift.label}`}
+      title={tooltip}
       onClick={onSelect}
     >
       <span className="shift-color-dot" />
@@ -116,6 +132,7 @@ function EntryChip({
     (entry.customStart && entry.customEnd
       ? `${entry.customStart}-${entry.customEnd}`
       : (type?.label ?? "Ca làm"));
+  const tooltip = isLongShift(label) ? LONG_SHIFT_TOOLTIP : undefined;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `entry:${entry.id}`,
     data: { kind: "entry", entryId: entry.id, entry, label },
@@ -124,6 +141,7 @@ function EntryChip({
     <div
       className={`shift-line ${isDragging ? "is-dragging" : ""}`}
       style={shiftStyle(semanticShiftColor(label))}
+      title={tooltip}
     >
       <button
         type="button"
@@ -230,10 +248,12 @@ function Cell({
 function EmployeeDropRow({
   employee,
   groupId,
+  priority,
   children,
 }: {
   employee: Employee;
   groupId: string;
+  priority: boolean;
   children: ReactNode;
 }) {
   const { active, setNodeRef, isOver } = useDroppable({
@@ -243,7 +263,7 @@ function EmployeeDropRow({
   const source = active?.data.current as ActiveDragData | undefined;
   const isDragging = source?.kind === "employee" && source.employeeId === employee.id;
   return (
-    <tr ref={setNodeRef} className={`employee-row ${source?.kind === "employee" ? "is-reorder-mode" : ""} ${isDragging ? "is-dragging-employee" : ""} ${isOver && !isDragging ? "is-drop-target" : ""}`}>
+    <tr ref={setNodeRef} className={`employee-row ${priority ? "priority-employee-row" : ""} ${source?.kind === "employee" ? "is-reorder-mode" : ""} ${isDragging ? "is-dragging-employee" : ""} ${isOver && !isDragging ? "is-drop-target" : ""}`}>
       {children}
     </tr>
   );
@@ -280,6 +300,7 @@ type Props = {
   onEditEmployee: (id: string, details: EmployeeDetails) => void;
   onDeleteEmployee: (id: string) => void;
   onCommitAddEmployee: (groupId: string, details: EmployeeDetails) => void;
+  onAddCustomRole: (name: string) => string;
   onRemoveEntry: (id: string) => void;
   onSetCountOverride: (
     day: number,
@@ -349,6 +370,7 @@ export function ScheduleTable(props: Props) {
     onEditEmployee,
     onDeleteEmployee,
     onCommitAddEmployee,
+    onAddCustomRole,
     onRemoveEntry,
     onSetCountOverride,
   } = props;
@@ -382,7 +404,11 @@ export function ScheduleTable(props: Props) {
     T: 0,
     Đ: 0,
   }));
+  const dailyShiftCounts = Array.from({ length: 7 }, () => 0);
   for (const entry of entries) {
+    if (entry.dayOfWeek >= 1 && entry.dayOfWeek <= 7) {
+      dailyShiftCounts[entry.dayOfWeek - 1] += 1;
+    }
     const type = data.shiftTypes.find((item) => item.id === entry.shiftTypeId);
     const entryPeriods = new Set<"S" | "T" | "Đ">();
     for (const range of rangesForEntry(entry, type)) {
@@ -392,15 +418,22 @@ export function ScheduleTable(props: Props) {
       automaticCounts[entry.dayOfWeek - 1][period] += 1;
   }
   const countOverrides = data.schedules[weekKey(week)]?.countOverrides ?? {};
-  const employeeColumnWidth = Math.max(
-    195,
-    ...data.employees.map(
-      (employee) =>
-        employee.name.length * 6.6 +
-        75 +
-        (employee.isHeadChef ? 18 : employee.isNew ? 24 : 0),
-    ),
-  );
+  const employeeColumnWidth = useMemo(() => {
+    const context = typeof document === "undefined"
+      ? null
+      : document.createElement("canvas").getContext("2d");
+    if (context) {
+      context.font = '650 13px "Helvetica Neue", "Segoe UI Variable", "Segoe UI", Arial, sans-serif';
+    }
+
+    return Math.max(
+      195,
+      ...data.employees.map((employee) => {
+        const nameWidth = context?.measureText(employee.name).width ?? employee.name.length * 7.5;
+        return Math.ceil(nameWidth + EMPLOYEE_COLUMN_CHROME_WIDTH);
+      }),
+    );
+  }, [data.employees]);
   const sheetStyle = { "--employee-column-width": `${employeeColumnWidth}px` } as CSSProperties;
 
   return (
@@ -455,28 +488,33 @@ export function ScheduleTable(props: Props) {
           <tbody>
             {groups.map((group) => (
               <Fragment key={group.id}>
-                <tr className="group-row">
+                <tr className={group.id === PRIORITY_GROUP_ID ? "priority-group-row" : "group-row"}>
                   <td colSpan={8}>
-                    <div className="group-row-content">
-                      <span
-                        className={`group-mark group-mark-${group.sortOrder}`}
-                      >
-                        <Icon
-                          name={FIXED_GROUPS[group.sortOrder]?.icon ?? "grid"}
-                          size={17}
-                        />
-                      </span>
-                      <strong className="fixed-group-name">
-                        {(
-                          FIXED_GROUPS[group.sortOrder]?.name ?? group.name
-                        ).toLocaleUpperCase("vi")}
-                      </strong>
+                    <div className={group.id === PRIORITY_GROUP_ID ? "priority-group-row-content" : "group-row-content"}>
+                      {group.id !== PRIORITY_GROUP_ID && (
+                        <>
+                          <span
+                            className={`group-mark group-mark-${group.sortOrder}`}
+                          >
+                            <Icon
+                              name={FIXED_GROUPS[group.sortOrder]?.icon ?? "grid"}
+                              size={17}
+                            />
+                          </span>
+                          <strong className="fixed-group-name">
+                            {(
+                              FIXED_GROUPS[group.sortOrder]?.name ?? group.name
+                            ).toLocaleUpperCase("vi")}
+                          </strong>
+                        </>
+                      )}
+                      {group.id === PRIORITY_GROUP_ID && <span className="priority-group-accent" aria-hidden="true" />}
                       <div className="group-actions no-export">
                         <button
                           type="button"
                           className="group-add"
                           onClick={() => setEmployeeEditor({ groupId: group.id })}
-                          aria-label={`Thêm nhân viên vào ${group.name}`}
+                          aria-label={group.id === PRIORITY_GROUP_ID ? "Thêm nhân viên ưu tiên" : `Thêm nhân viên vào ${group.name}`}
                         >
                           <Icon name="plus" size={13} />
                           <span className="sr-only">Thêm nhân viên</span>
@@ -490,16 +528,17 @@ export function ScheduleTable(props: Props) {
                     key={employee.id}
                     employee={employee}
                     groupId={group.id}
+                    priority={group.id === PRIORITY_GROUP_ID}
                   >
                     <th
                       scope="row"
                       className={`name-cell ${employee.isNew ? "is-new-employee" : ""}`}
                     >
                       <div className="employee-identity">
-                        <EmployeeDragHandle employee={employee} groupId={group.id} colorClass={GROUP_DOT_COLORS[group.sortOrder % GROUP_DOT_COLORS.length]} />
+                        <EmployeeDragHandle employee={employee} groupId={group.id} colorClass={groupDotColor(group.id, group.sortOrder)} />
                         <span className="employee-avatar-wrap">
                           <span
-                            className={`avatar ${GROUP_DOT_COLORS[group.sortOrder % GROUP_DOT_COLORS.length]}`}
+                            className={`avatar ${groupDotColor(group.id, group.sortOrder)}`}
                           />
                         </span>
                         <button
@@ -508,18 +547,28 @@ export function ScheduleTable(props: Props) {
                           onClick={() => setEmployeeEditor({ groupId: group.id, employee })}
                           title="Chỉnh sửa nhân viên"
                         >
-                          <span className="employee-name-wrap">
-                            {employee.name}
-                          {employee.isHeadChef && (
-                            <span className="head-chef-badge" title="Bếp trưởng" aria-label="Bếp trưởng">
+                          <span className="employee-name">{employee.name}</span>
+                        </button>
+                        <span className="employee-role-status">
+                          {employee.isExecutiveChef ? (
+                            <span className="role-icon executive-chef-badge" role="img" tabIndex={0} data-tooltip="Tổng bếp trưởng" aria-label="Tổng bếp trưởng">
+                              <Icon name="crown" size={13} />
+                            </span>
+                          ) : employee.isHeadChef ? (
+                            <span className="role-icon head-chef-badge" role="img" tabIndex={0} data-tooltip="Bếp trưởng" aria-label="Bếp trưởng">
                               <Icon name="chefHat" size={13} />
                             </span>
-                          )}
+                          ) : employee.isFullTime ? (
+                            <span className="role-icon full-time-badge" role="img" tabIndex={0} data-tooltip="Full-time" aria-label="Full-time">
+                              <Icon name="star" size={13} />
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="employee-new-status">
                           {employee.isNew && (
                             <span className="new-employee-badge">NEW</span>
                           )}
-                          </span>
-                        </button>
+                        </span>
                         <button
                           type="button"
                           className="employee-remove no-export"
@@ -527,7 +576,7 @@ export function ScheduleTable(props: Props) {
                           title={`Xóa ${employee.name}`}
                           aria-label={`Xóa nhân viên ${employee.name}`}
                         >
-                          <Icon name="close" size={11} />
+                          <Icon name="close" size={13} />
                         </button>
                       </div>
                     </th>
@@ -555,7 +604,7 @@ export function ScheduleTable(props: Props) {
                     ))}
                   </EmployeeDropRow>
                 ))}
-                {!group.employees.length && (
+                {group.id !== PRIORITY_GROUP_ID && !group.employees.length && (
                     <tr className="no-export">
                       <td colSpan={8} className="empty-group">
                         Chưa có nhân viên.{" "}
@@ -602,18 +651,34 @@ export function ScheduleTable(props: Props) {
               period,
               value: countOverrides[`${dayIndex + 1}:${period}`] ?? automaticCounts[dayIndex][period],
             }));
+            const shiftCount = dailyShiftCounts[dayIndex];
+            const staffingStatus = staffingStatusForShiftCount(shiftCount);
+            const staffingLabel = shiftCount === 0
+              ? "Chưa có ca"
+              : `${shiftCount} ca đã xếp · Trạng thái ${staffingStatus === "critical" ? "đỏ" : staffingStatus === "warning" ? "vàng" : "xanh"}`;
             return (
               <article className={`daily-summary-card ${values.some(({ value }) => value > 0) ? "has-shifts" : ""}`} key={date.toISOString()}>
                 <span className="daily-summary-date"><span>{DAYS[dayIndex]}</span><b>{formatDayHeader(date)}</b></span>
                 {values.map(({ period, value }) => (
-                  <label className={`daily-summary-line ${value === 0 ? "is-empty" : ""}`} key={period}>
+                  <div className={`daily-summary-line ${value === 0 ? "is-empty" : ""}`} key={period}>
                     <span><Icon name={period === "S" ? "sun" : period === "T" ? "sunHigh" : "moon"} size={14} />{{ S: "Sáng", T: "Trưa", Đ: "Tối" }[period]}</span>
                     <input key={`${period}:${value}`} type="number" min="0" defaultValue={value} aria-label={`Tổng ca ${period} ngày ${dayIndex + 1}`} title="Nhập số để chỉnh tay; xóa trắng để dùng số tự động" onBlur={(event) => {
                       const raw = event.currentTarget.value.trim();
                       onSetCountOverride(dayIndex + 1, period, raw === "" ? null : Math.max(0, Number(raw) || 0));
                     }} />
-                  </label>
+                  </div>
                 ))}
+                <span
+                  className={`staffing-status staffing-status-${staffingStatus}`}
+                  title={staffingLabel}
+                  aria-label={staffingLabel}
+                  tabIndex={0}
+                >
+                  <span
+                    className="staffing-status-fill"
+                    style={{ width: shiftCount === 0 ? 0 : "100%" }}
+                  />
+                </span>
               </article>
             );
           })}
@@ -622,6 +687,8 @@ export function ScheduleTable(props: Props) {
       {employeeEditor && <EmployeeEditor
         employee={employeeEditor.employee}
         currentChef={data.employees.find((employee) => employee.isHeadChef)}
+        customRoles={data.customRoles ?? []}
+        onAddCustomRole={onAddCustomRole}
         onClose={() => setEmployeeEditor(null)}
         onSave={(details) => {
           if (employeeEditor.employee) onEditEmployee(employeeEditor.employee.id, details);
@@ -639,11 +706,17 @@ export function ScheduleTable(props: Props) {
           0,
         );
         const group = data.groups.find((item) => item.id === deleteEmployee.groupId);
-        const areaName = (FIXED_GROUPS[group?.sortOrder ?? -1]?.name ?? group?.name ?? "Chưa có khu vực").toLocaleUpperCase("vi");
+        const areaName = group?.id === PRIORITY_GROUP_ID
+          ? ""
+          : (FIXED_GROUPS[group?.sortOrder ?? -1]?.name ?? group?.name ?? "Chưa có khu vực").toLocaleUpperCase("vi");
+        const customRoleName = (data.customRoles ?? []).find(
+          (item) => item.id === deleteEmployee.customRoleId,
+        )?.name;
         return <EmployeeDeleteDialog
           employee={deleteEmployee}
           areaName={areaName}
-          colorClass={GROUP_DOT_COLORS[group?.sortOrder ?? 0] ?? "meat-dot"}
+          customRoleName={customRoleName}
+          colorClass={groupDotColor(group?.id ?? "", group?.sortOrder ?? 0)}
           shiftCount={shiftCount}
           weekCount={affectedWeeks.length}
           onClose={() => setDeleteEmployee(null)}

@@ -6,7 +6,12 @@ import {
   readTextFile,
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
-import { createDefaultData, makeShortName, normalizeEmployeeName } from "./defaultData";
+import {
+  createDefaultData,
+  ensurePriorityGroup,
+  makeShortName,
+  normalizeEmployeeName,
+} from "./defaultData";
 import type { AppData, WeekRef } from "./types";
 import { weekKey } from "./week";
 
@@ -30,11 +35,12 @@ export async function getData(): Promise<AppData> {
   const text = await readTextFile(FILE, FS);
   const parsed = JSON.parse(text) as AppData;
   return {
-    groups: parsed.groups ?? [],
+    groups: ensurePriorityGroup(parsed.groups ?? []),
     employees: (parsed.employees ?? []).map((employee) => {
       const name = normalizeEmployeeName(employee.name);
       return { ...employee, name, shortName: makeShortName(name) };
     }),
+    customRoles: parsed.customRoles ?? [],
     shiftTypes: parsed.shiftTypes ?? [],
     schedules: parsed.schedules ?? {},
   };

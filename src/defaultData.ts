@@ -1,4 +1,16 @@
-import type { AppData } from "./types";
+import type { AppData, Group } from "./types";
+
+export const PRIORITY_GROUP_ID = "priority";
+
+export function ensurePriorityGroup(groups: Group[]): Group[] {
+  const existing = groups.find((group) => group.id === PRIORITY_GROUP_ID);
+  return [
+    existing
+      ? { ...existing, sortOrder: -1 }
+      : { id: PRIORITY_GROUP_ID, name: "Priority", sortOrder: -1 },
+    ...groups.filter((group) => group.id !== PRIORITY_GROUP_ID),
+  ];
+}
 
 export const SHIFT_COLORS = [
   "#70AD47", "#A6A6A6", "#C55A5A", "#ED7D31", "#5B9BD5",
@@ -26,6 +38,7 @@ export function normalizeEmployeeName(name: string): string {
 export function createDefaultData(): AppData {
   return {
     groups: [
+      { id: PRIORITY_GROUP_ID, name: "Priority", sortOrder: -1 },
       { id: id("g", 1), name: "Meat", sortOrder: 0 },
       { id: id("g", 2), name: "Soup", sortOrder: 1 },
       { id: id("g", 3), name: "Salad", sortOrder: 2 },
@@ -39,6 +52,7 @@ export function createDefaultData(): AppData {
       { id: id("e", 6), name: "Giang", shortName: "Giang", groupId: id("g", 3), sortOrder: 0 },
       { id: id("e", 7), name: "Hoa", shortName: "Hoa", groupId: id("g", 3), sortOrder: 1 },
     ],
+    customRoles: [],
     shiftTypes: [
       { id: id("s", 1), label: "10:00-14:00", color: "#70AD47", isPreset: true },
       { id: id("s", 2), label: "14:00-23:00", color: "#C55A5A", isPreset: true },

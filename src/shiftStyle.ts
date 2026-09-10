@@ -6,7 +6,10 @@ export const SEMANTIC_SHIFT_COLORS = {
   afternoonNight: "#C55A5A",
   night: "#ED7D31",
   full: "#5B9BD5",
+  long: "#8064A2",
 } as const;
+
+export const LONG_SHIFT_TOOLTIP = "Ca dài · 10:00–23:00 · Làm xuyên từ sáng đến tối";
 
 type ShiftRange = { start: number; end: number };
 
@@ -27,6 +30,15 @@ function rangesFromLabel(label: string): ShiftRange[] {
   });
 }
 
+function isSingleRange(label: string, start: number, end: number): boolean {
+  const ranges = rangesFromLabel(label);
+  return ranges.length === 1 && ranges[0].start === start && ranges[0].end === end;
+}
+
+export function isLongShift(label: string): boolean {
+  return isSingleRange(label, 10 * 60, 23 * 60);
+}
+
 /** Assign one of the five scheduling colours from the shift's actual coverage. */
 export function semanticShiftColor(label: string): string {
   const ranges = rangesFromLabel(label);
@@ -36,6 +48,8 @@ export function semanticShiftColor(label: string): string {
   const afternoon = covers(14 * 60, 17 * 60);
   const night = covers(17 * 60, 24 * 60);
 
+  if (isLongShift(label)) return SEMANTIC_SHIFT_COLORS.long;
+  if (isSingleRange(label, 10 * 60, 18 * 60)) return SEMANTIC_SHIFT_COLORS.morningAfternoon;
   if (morning && night) return SEMANTIC_SHIFT_COLORS.full;
   if (afternoon && night) return SEMANTIC_SHIFT_COLORS.afternoonNight;
   if (morning && afternoon) return SEMANTIC_SHIFT_COLORS.morningAfternoon;
