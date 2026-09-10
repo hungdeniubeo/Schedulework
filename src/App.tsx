@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { makeShortName, normalizeEmployeeName } from "./defaultData";
+import { moveEmployee } from "./employeeOrder";
 import { exportScheduleJpg } from "./exportJpg";
 import { ScheduleTable, SheetDnd } from "./ScheduleTable";
 import { ShiftSidebar } from "./ShiftSidebar";
@@ -265,21 +266,16 @@ export default function App() {
     const target = event.over?.data.current;
     const source = event.active.data.current;
     if (source?.kind === "employee") {
-      if (
-        target?.kind !== "employee" ||
-        target.groupId !== source.groupId ||
-        target.employeeId === source.employeeId
-      ) return;
+      if (target?.kind !== "employee" && target?.kind !== "employee-group") return;
+      const beforeEmployeeId = target.kind === "employee" ? target.employeeId : undefined;
+      if (beforeEmployeeId === source.employeeId) return;
       patch((draft) => {
-        const groupEmployees = draft.employees
-          .filter((employee) => employee.groupId === source.groupId)
-          .sort((a, b) => a.sortOrder - b.sortOrder);
-        const from = groupEmployees.findIndex((employee) => employee.id === source.employeeId);
-        const to = groupEmployees.findIndex((employee) => employee.id === target.employeeId);
-        if (from < 0 || to < 0) return;
-        const [moved] = groupEmployees.splice(from, 1);
-        groupEmployees.splice(to, 0, moved);
-        groupEmployees.forEach((employee, index) => { employee.sortOrder = index; });
+        moveEmployee(
+          draft.employees,
+          source.employeeId,
+          target.groupId,
+          beforeEmployeeId,
+        );
       });
       return;
     }

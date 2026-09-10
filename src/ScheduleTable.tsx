@@ -269,6 +269,31 @@ function EmployeeDropRow({
   );
 }
 
+function EmployeeGroupDropRow({
+  groupId,
+  priority,
+  children,
+}: {
+  groupId: string;
+  priority: boolean;
+  children: ReactNode;
+}) {
+  const { active, setNodeRef, isOver } = useDroppable({
+    id: `employee-group-target:${groupId}`,
+    data: { kind: "employee-group", groupId },
+  });
+  const source = active?.data.current as ActiveDragData | undefined;
+  const isEmployeeDropTarget = source?.kind === "employee" && isOver;
+  return (
+    <tr
+      ref={setNodeRef}
+      className={`${priority ? "priority-group-row" : "group-row"} ${isEmployeeDropTarget ? "is-employee-drop-target" : ""}`}
+    >
+      {children}
+    </tr>
+  );
+}
+
 function EmployeeDragHandle({ employee, groupId, colorClass }: { employee: Employee; groupId: string; colorClass: string }) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `employee:${employee.id}`,
@@ -488,7 +513,10 @@ export function ScheduleTable(props: Props) {
           <tbody>
             {groups.map((group) => (
               <Fragment key={group.id}>
-                <tr className={group.id === PRIORITY_GROUP_ID ? "priority-group-row" : "group-row"}>
+                <EmployeeGroupDropRow
+                  groupId={group.id}
+                  priority={group.id === PRIORITY_GROUP_ID}
+                >
                   <td colSpan={8}>
                     <div className={group.id === PRIORITY_GROUP_ID ? "priority-group-row-content" : "group-row-content"}>
                       {group.id !== PRIORITY_GROUP_ID && (
@@ -522,7 +550,7 @@ export function ScheduleTable(props: Props) {
                       </div>
                     </div>
                   </td>
-                </tr>
+                </EmployeeGroupDropRow>
                 {group.employees.map((employee) => (
                   <EmployeeDropRow
                     key={employee.id}
@@ -758,8 +786,12 @@ function ActiveDragOverlay() {
 
 const scheduleCollisionDetection: CollisionDetection = (args) => {
   const employeeDrag = args.active.data.current?.kind === "employee";
-  const prefix = employeeDrag ? "employee-target:" : "cell:";
-  return pointerWithin(args).filter((collision) => String(collision.id).startsWith(prefix));
+  return pointerWithin(args).filter((collision) => {
+    const id = String(collision.id);
+    return employeeDrag
+      ? id.startsWith("employee-target:") || id.startsWith("employee-group-target:")
+      : id.startsWith("cell:");
+  });
 };
 
 export function SheetDnd({
