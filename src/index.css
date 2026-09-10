@@ -3038,15 +3038,21 @@ body {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid transparent;
+  flex: 0 0 25px;
+  border: 1px solid #dce1db;
+  background: linear-gradient(145deg, #fafbf9, #eef1ed);
+  color: #536057;
   line-height: 0;
-  box-shadow: inset 0 1px 0 #ffffffa8, 0 2px 7px #29352d0b;
+  box-shadow: inset 0 1px 0 #fff, 0 2px 6px #29352d0a;
   transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 .group-mark svg {
+  display: block;
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 1px 1px #ffffffa8);
+  width: 17px;
+  height: 17px;
+  filter: none;
   transition: transform 180ms cubic-bezier(.2, .75, .25, 1), filter 180ms ease;
 }
 .group-mark::after {
@@ -3062,27 +3068,24 @@ body {
   pointer-events: none;
 }
 .group-mark-0 {
-  border-color: #ecd2c0;
-  background: linear-gradient(145deg, #fbf2eb, #f2dfd2);
-  color: #a75d35;
+  border-color: #e5d5ca;
+  color: #966047;
 }
 .group-mark-1 {
-  border-color: #e8cecb;
-  background: linear-gradient(145deg, #faf0ef, #f1dddd);
-  color: #a6504e;
+  border-color: #e2d3d0;
+  color: #8e5d56;
 }
 .group-mark-2 {
-  border-color: #cee0ce;
-  background: linear-gradient(145deg, #f0f7ef, #dfeede);
-  color: #4f7f54;
+  border-color: #d0ddd1;
+  color: #56785b;
 }
 .group-row:hover .group-mark {
   transform: translateY(-1px);
   box-shadow: inset 0 1px 0 #ffffffcf, 0 4px 10px #29352d16;
 }
 .group-row:hover .group-mark svg {
-  filter: drop-shadow(0 2px 2px #29352d1c);
-  transform: scale(1.045);
+  filter: drop-shadow(0 1px 1px #29352d18);
+  transform: scale(1.03);
 }
 .group-row:hover .group-mark::after {
   animation: group-icon-shimmer 620ms ease-out;
@@ -3095,6 +3098,53 @@ body {
 
 @keyframes group-icon-shimmer {
   0% { opacity: 0; transform: translateX(0) rotate(12deg); }
-  28% { opacity: .72; }
+  28% { opacity: .42; }
   100% { opacity: 0; transform: translateX(390%) rotate(12deg); }
+}
+
+.employee-identity {
+  align-items: center;
+}
+.employee-role-status {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  align-self: center;
+  line-height: 0;
+}
+.employee-role-status .role-icon {
+  position: relative;
+  inset: auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  line-height: 0;
+  vertical-align: middle;
+  transform: none;
+}
+.employee-role-status .role-icon svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+.employee-role-status .head-chef-badge {
+  border-color: #d3dad3;
+  background: linear-gradient(145deg, #fff, #eef2ee);
+  color: #4d6053;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 3px #26382d12;
+}
+.employee-remove {
+  align-self: center;
+}
+
+.daily-summary-line > .daily-summary-period-label {
+  display: block;
+  min-width: 0;
+  line-height: 14px;
+  text-align: left;
 }

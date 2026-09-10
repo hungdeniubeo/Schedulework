@@ -689,7 +689,7 @@ export function ScheduleTable(props: Props) {
                 <span className="daily-summary-date"><span>{DAYS[dayIndex]}</span><b>{formatDayHeader(date)}</b></span>
                 {values.map(({ period, value }) => (
                   <div className={`daily-summary-line ${value === 0 ? "is-empty" : ""}`} key={period}>
-                    <span><Icon name={period === "S" ? "sun" : period === "T" ? "sunHigh" : "moon"} size={14} />{{ S: "Sáng", T: "Trưa", Đ: "Tối" }[period]}</span>
+                    <span className="daily-summary-period-label">{{ S: "Sáng", T: "Trưa", Đ: "Tối" }[period]}</span>
                     <input key={`${period}:${value}`} type="number" min="0" defaultValue={value} aria-label={`Tổng ca ${period} ngày ${dayIndex + 1}`} title="Nhập số để chỉnh tay; xóa trắng để dùng số tự động" onBlur={(event) => {
                       const raw = event.currentTarget.value.trim();
                       onSetCountOverride(dayIndex + 1, period, raw === "" ? null : Math.max(0, Number(raw) || 0));
